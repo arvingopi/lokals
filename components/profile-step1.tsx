@@ -5,7 +5,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { MapPin, User, Shuffle, Check, ArrowRight, AlertCircle } from "lucide-react"
+import { User, Shuffle, Check, ArrowRight, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { generateAnonymousUsername } from "@/lib/chat-utils"
 

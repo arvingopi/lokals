@@ -4,7 +4,7 @@ import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { MapPin, Mail, Loader2, AlertCircle, ArrowLeft, UserPlus, CheckCircle } from "lucide-react"
+import { MapPin, Loader2, AlertCircle, ArrowLeft, UserPlus, CheckCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import firebaseAuthClient from "@/lib/firebase-auth-client"
 
@@ -60,18 +60,21 @@ export function SignUp({ onBackClick, onSignInClick }: SignUpProps) {
     try {
       await firebaseAuthClient.signUpWithEmailVerification(email.toLowerCase().trim(), password)
       setEmailSent(true)
-    } catch (error: any) {
+    } catch (error) {
       console.error("Sign up failed:", error)
       
       let errorMessage = "Sign up failed. Please try again."
-      if (error.code === 'auth/invalid-email') {
-        errorMessage = "Please enter a valid email address."
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = "Password must be at least 6 characters long."
-      } else if (error.code === 'auth/email-already-in-use') {
-        errorMessage = "An account with this email already exists. Please sign in instead."
-      } else if (error.message) {
-        errorMessage = error.message
+      if (error instanceof Error && 'code' in error) {
+        const firebaseError = error as { code: string; message: string }
+        if (firebaseError.code === 'auth/invalid-email') {
+          errorMessage = "Please enter a valid email address."
+        } else if (firebaseError.code === 'auth/weak-password') {
+          errorMessage = "Password must be at least 6 characters long."
+        } else if (firebaseError.code === 'auth/email-already-in-use') {
+          errorMessage = "An account with this email already exists. Please sign in instead."
+        } else if (firebaseError.message) {
+          errorMessage = firebaseError.message
+        }
       }
       
       setError(errorMessage)
@@ -108,7 +111,7 @@ export function SignUp({ onBackClick, onSignInClick }: SignUpProps) {
               <div>
                 <h2 className="text-xl font-bold text-white mb-2">Check Your Email</h2>
                 <p className="text-white/70 text-sm">
-                  We've sent a verification link to:
+                  We&apos;ve sent a verification link to:
                   <span className="block mt-1 font-medium text-emerald-300">{email}</span>
                 </p>
                 <p className="text-white/60 text-xs mt-3">
@@ -136,7 +139,7 @@ export function SignUp({ onBackClick, onSignInClick }: SignUpProps) {
 
             <div className="text-center">
               <p className="text-white/60 text-xs">
-                Didn't receive the email? Check your spam folder or try again.
+                Didn&apos;t receive the email? Check your spam folder or try again.
               </p>
             </div>
           </CardContent>

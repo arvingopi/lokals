@@ -1,4 +1,3 @@
-import type { NextRequest } from "next/server"
 import { getWebSocketServer } from "@/lib/websocket-server"
 
 // Initialize on first API call

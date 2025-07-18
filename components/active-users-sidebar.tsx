@@ -1,14 +1,12 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-import { Users, MessageCircle, Hash, Heart, HeartOff, Star, ChevronDown, ChevronRight, MapPin, Clock } from "lucide-react"
-import type { User } from "@/lib/chat-utils"
-import type { FavouriteUser, ActiveChatUser } from "@/lib/firebase-database"
+import { MessageCircle, Hash, Heart, HeartOff, Star, ChevronDown, ChevronRight } from "lucide-react"
+import type { User, FavouriteUser, ActiveChatUser } from "@/lib/firebase-database"
 import { subscribeToActiveChats, subscribeToNotifications, markMessagesAsRead } from "@/lib/firebase-database"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 
 interface ActiveUsersSidebarProps {
   users: User[]
@@ -18,6 +16,7 @@ interface ActiveUsersSidebarProps {
   onUserSelect: (userId: string | null) => void
   onUserClick: (user: User) => void
   refreshTrigger?: number
+  zipcode?: string
 }
 
 // Helper function to get gender emoji
@@ -34,23 +33,37 @@ const getGenderEmoji = (gender?: string) => {
 export function ActiveUsersSidebar({
   users,
   currentUserId,
-  currentUsername,
+  currentUsername: _currentUsername,
   selectedUserId,
   onUserSelect,
   onUserClick,
   refreshTrigger,
+  zipcode,
 }: ActiveUsersSidebarProps) {
   const [favouriteUsers, setFavouriteUsers] = useState<FavouriteUser[]>([])
   const [favouriteUserIds, setFavouriteUserIds] = useState<Set<string>>(new Set())
   const [activeChats, setActiveChats] = useState<ActiveChatUser[]>([])
   const [isRoomExpanded, setIsRoomExpanded] = useState(true)
-  const [unreadMessages, setUnreadMessages] = useState<{[userId: string]: any}>({})
+  const [unreadMessages, setUnreadMessages] = useState<{[userId: string]: number | boolean}>({})
   
   const otherUsers = users.filter((user) => user.id !== currentUserId)
   
-  // Get the current room's zipcode (from any user since they're all in the same room)
-  const currentZipcode = users.length > 0 ? users[0].zipcode : ""
+  // Get the current room's zipcode (from prop or users)
+  const currentZipcode = zipcode || (users.length > 0 ? users[0].zipcode : "")
   const displayZipcode = currentZipcode.length >= 3 ? currentZipcode.substring(0, 3) : currentZipcode
+
+  const fetchFavouriteUsers = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/favourites?userId=${currentUserId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setFavouriteUsers(data.favourites)
+        setFavouriteUserIds(new Set(data.favourites.map((fav: FavouriteUser) => fav.favourite_user_id)))
+      }
+    } catch (error) {
+      console.error("Error fetching favourite users:", error)
+    }
+  }, [currentUserId])
 
   // Fetch data on component mount and when messages change
   useEffect(() => {
@@ -70,27 +83,14 @@ export function ActiveUsersSidebar({
       unsubscribeActiveChats()
       unsubscribeNotifications()
     }
-  }, [currentUserId])
+  }, [currentUserId, fetchFavouriteUsers])
 
   // Refresh favorites when refreshTrigger changes
   useEffect(() => {
     if (refreshTrigger) {
       fetchFavouriteUsers()
     }
-  }, [refreshTrigger])
-
-  const fetchFavouriteUsers = async () => {
-    try {
-      const response = await fetch(`/api/favourites?userId=${currentUserId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setFavouriteUsers(data.favourites)
-        setFavouriteUserIds(new Set(data.favourites.map((fav: FavouriteUser) => fav.favourite_user_id)))
-      }
-    } catch (error) {
-      console.error("Error fetching favourite users:", error)
-    }
-  }
+  }, [refreshTrigger, fetchFavouriteUsers])
 
 
   const toggleFavourite = async (user: User) => {

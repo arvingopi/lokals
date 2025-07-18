@@ -4,12 +4,13 @@ import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { MapPin, Mail, Loader2, AlertCircle, ArrowLeft, LogIn } from "lucide-react"
+import { MapPin, Loader2, AlertCircle, ArrowLeft, LogIn } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import firebaseAuthClient from "@/lib/firebase-auth-client"
+import type { UserSession, SessionProfile } from "@/lib/firebase-auth-client"
 
 interface SignInProps {
-  onAuthSuccess: (session: any, profile: any, isNew: boolean) => void
+  onAuthSuccess: (session: UserSession, profile: SessionProfile, isNew: boolean) => void
   onBackClick: () => void
   onSignUpClick: () => void
 }
@@ -49,20 +50,23 @@ export function SignIn({ onAuthSuccess, onBackClick, onSignUpClick }: SignInProp
     try {
       const result = await firebaseAuthClient.signInWithEmail(email.toLowerCase().trim(), password)
       onAuthSuccess(result.session, result.profile, result.isNew)
-    } catch (error: any) {
+    } catch (error) {
       console.error("Sign in failed:", error)
       
       let errorMessage = "Sign in failed. Please try again."
-      if (error.code === 'auth/invalid-email') {
-        errorMessage = "Please enter a valid email address."
-      } else if (error.code === 'auth/user-not-found') {
-        errorMessage = "No account found with this email. Please sign up first."
-      } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        errorMessage = "Incorrect password. Please try again."
-      } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = "Too many failed attempts. Please try again later."
-      } else if (error.message) {
-        errorMessage = error.message
+      if (error instanceof Error && 'code' in error) {
+        const firebaseError = error as { code: string; message: string }
+        if (firebaseError.code === 'auth/invalid-email') {
+          errorMessage = "Please enter a valid email address."
+        } else if (firebaseError.code === 'auth/user-not-found') {
+          errorMessage = "No account found with this email. Please sign up first."
+        } else if (firebaseError.code === 'auth/wrong-password' || firebaseError.code === 'auth/invalid-credential') {
+          errorMessage = "Incorrect password. Please try again."
+        } else if (firebaseError.code === 'auth/too-many-requests') {
+          errorMessage = "Too many failed attempts. Please try again later."
+        } else if (firebaseError.message) {
+          errorMessage = firebaseError.message
+        }
       }
       
       setError(errorMessage)
@@ -171,7 +175,7 @@ export function SignIn({ onAuthSuccess, onBackClick, onSignUpClick }: SignInProp
 
           <div className="text-center">
             <p className="text-white/60 text-sm">
-              Don't have an account?{" "}
+              Don&apos;t have an account?{" "}
               <button 
                 onClick={onSignUpClick}
                 className="text-emerald-300 hover:text-emerald-200 font-medium underline"

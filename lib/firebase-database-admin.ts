@@ -251,7 +251,7 @@ export async function getActiveUsers(zipcode: string): Promise<User[]> {
           last_seen: new Date(data.lastActivity),
           zipcode,
           is_online: true,
-          session_id: null
+          session_id: undefined
         })
       }
     }
@@ -396,12 +396,12 @@ export async function getOrCreateSession(deviceFingerprint: string): Promise<{
   const deviceSessionRef = adminFirestore.collection('device_sessions').doc(deviceFingerprint)
   const deviceSessionDoc = await deviceSessionRef.get()
   
-  if (deviceSessionDoc.exists()) {
+  if (deviceSessionDoc.exists) {
     const deviceData = deviceSessionDoc.data()!
     const sessionRef = adminFirestore.collection('user_sessions').doc(deviceData.sessionId)
     const sessionDoc = await sessionRef.get()
     
-    if (sessionDoc.exists()) {
+    if (sessionDoc.exists) {
       const sessionData = sessionDoc.data()!
       
       // Update last active

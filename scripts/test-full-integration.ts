@@ -12,7 +12,6 @@ import {
   getOrCreateSession,
   updateSessionProfile
 } from '../lib/firebase-session-server'
-import { getDeviceFingerprint } from '../lib/device-fingerprint'
 import { config } from "dotenv"
 import { resolve } from "path"
 
@@ -25,8 +24,7 @@ async function testFullIntegration() {
   try {
     // Test 1: Session Management (Firestore)
     console.log('\n📝 Testing Session Management (Firestore)...')
-    const deviceFingerprint = await getDeviceFingerprint()
-    const sessionResult = await getOrCreateSession(deviceFingerprint)
+    const sessionResult = await getOrCreateSession('test-device')
     
     console.log('✅ Session creation successful:', {
       sessionId: sessionResult.session.session_id.substring(0, 8) + '...',
@@ -109,10 +107,12 @@ async function testFullIntegration() {
   } catch (error) {
     console.error('❌ Full integration test failed:', error)
     
-    if (error.message.includes('permission-denied')) {
-      console.log('💡 Fix: Check Firebase security rules')
-    } else if (error.message.includes('unavailable')) {
-      console.log('💡 Fix: Check Firebase service status')
+    if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+      if (error.message.includes('permission-denied')) {
+        console.log('💡 Fix: Check Firebase security rules')
+      } else if (error.message.includes('unavailable')) {
+        console.log('💡 Fix: Check Firebase service status')
+      }
     }
     
     process.exit(1)

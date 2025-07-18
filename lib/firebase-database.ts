@@ -19,7 +19,7 @@ import {
   updateDoc, 
   deleteDoc, 
   collection, 
-  addDoc, 
+ 
   getDocs, 
   query as firestoreQuery, 
   where, 
@@ -326,7 +326,7 @@ export async function getActiveUsers(zipcode: string): Promise<User[]> {
           last_seen: new Date(data.lastActivity),
           zipcode,
           is_online: true,
-          session_id: null,
+          session_id: undefined,
           gender: data.gender || undefined,
           age: data.age || undefined
         })
@@ -555,7 +555,7 @@ export function subscribeToActiveUsers(zipcode: string, callback: (users: User[]
             last_seen: new Date(data.lastActivity),
             zipcode,
             is_online: true,
-            session_id: null,
+            session_id: undefined,
             gender: data.gender || undefined,
             age: data.age || undefined
           })

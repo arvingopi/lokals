@@ -99,11 +99,15 @@ async function testFirebase() {
   } catch (error) {
     console.error('❌ Firebase test failed:', error)
     
-    if (error.code === 'auth/api-key-not-valid') {
-      console.log('💡 Fix: Check your Firebase API key in .env.local')
-    } else if (error.code === 'permission-denied') {
-      console.log('💡 Fix: Check your Firebase security rules')
-    } else if (error.message.includes('network')) {
+    if (error && typeof error === 'object' && 'code' in error) {
+      if (error.code === 'auth/api-key-not-valid') {
+        console.log('💡 Fix: Check your Firebase API key in .env.local')
+      } else if (error.code === 'permission-denied') {
+        console.log('💡 Fix: Check your Firebase security rules')
+      }
+    }
+    
+    if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' && error.message.includes('network')) {
       console.log('💡 Fix: Check your internet connection')
     }
     

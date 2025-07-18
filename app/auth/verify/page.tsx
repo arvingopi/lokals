@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,7 +8,7 @@ import { MapPin, Loader2, CheckCircle, XCircle } from "lucide-react"
 import { applyActionCode } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 
-export default function EmailVerificationPage() {
+function EmailVerificationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
@@ -49,14 +49,17 @@ export default function EmailVerificationPage() {
           router.push('/')
         }, 2000)
         
-      } catch (error: any) {
+      } catch (error) {
         console.error('Email verification failed:', error)
         
         let errorMessage = 'Email verification failed.'
-        if (error.code === 'auth/invalid-action-code') {
-          errorMessage = 'Invalid or expired verification link.'
-        } else if (error.code === 'auth/expired-action-code') {
-          errorMessage = 'Verification link has expired.'
+        if (error instanceof Error && 'code' in error) {
+          const firebaseError = error as { code: string; message: string }
+          if (firebaseError.code === 'auth/invalid-action-code') {
+            errorMessage = 'Invalid or expired verification link.'
+          } else if (firebaseError.code === 'auth/expired-action-code') {
+            errorMessage = 'Verification link has expired.'
+          }
         }
         
         setError(errorMessage)
@@ -155,5 +158,34 @@ export default function EmailVerificationPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function EmailVerificationPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center p-4" style={{
+        background: 'linear-gradient(135deg, #0f172a 0%, #581c87 50%, #0f172a 100%)'
+      }}>
+        <Card className="w-full max-w-md shadow-2xl" style={{
+          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255, 255, 255, 0.2)'
+        }}>
+          <CardContent className="text-center py-8">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Loader2 className="h-8 w-8 text-white animate-spin" />
+            </div>
+            <h2 className="text-xl font-bold text-white mb-2">Loading...</h2>
+            <p className="text-white/70 text-sm">
+              Please wait while we load the verification page...
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <EmailVerificationContent />
+    </Suspense>
   )
 }

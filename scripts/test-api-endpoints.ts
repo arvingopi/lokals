@@ -1,11 +1,9 @@
 // Test API endpoints after Firebase migration
-import { getDeviceFingerprint } from '../lib/device-fingerprint'
 
 async function testApiEndpoints() {
   console.log('🧪 Testing API endpoints...')
   
   const baseUrl = 'http://localhost:3000'
-  const fingerprint = await getDeviceFingerprint()
   
   try {
     // Test 1: Session API
@@ -13,7 +11,7 @@ async function testApiEndpoints() {
     const sessionResponse = await fetch(`${baseUrl}/api/session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fingerprint })
+      body: JSON.stringify({ fingerprint: "test-fingerprint" })
     })
     
     if (sessionResponse.ok) {

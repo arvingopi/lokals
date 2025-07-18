@@ -17,7 +17,7 @@ export function useWebSocket(userId: string, username: string, zipcode: string) 
   const [isLoading, setIsLoading] = useState(false)
 
   const ws = useRef<WebSocket | null>(null)
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>()
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const reconnectAttempts = useRef(0)
 
   const connect = useCallback(async () => {

@@ -1,9 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { saveMessage, getRoomMessages, updateUserPresence, getActiveUsers } from "@/lib/firebase-database"
 
-export async function GET(request: NextRequest, { params }: { params: { zipcode: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ zipcode: string }> }) {
   try {
-    const zipcode = params.zipcode
+    const resolvedParams = await params
+    const zipcode = resolvedParams.zipcode
 
     const [messages, users] = await Promise.all([getRoomMessages(zipcode), getActiveUsers(zipcode)])
 
@@ -27,9 +28,10 @@ export async function GET(request: NextRequest, { params }: { params: { zipcode:
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { zipcode: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ zipcode: string }> }) {
   try {
-    const zipcode = params.zipcode
+    const resolvedParams = await params
+    const zipcode = resolvedParams.zipcode
     const { content, userId, username } = await request.json()
 
     // Save message and update user presence

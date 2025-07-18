@@ -62,7 +62,7 @@ export async function getCurrentLocation(): Promise<{ latitude: number; longitud
   try {
     const location = await attemptGeolocation({ timeout: 10000 })
     return location
-  } catch (error) {
+  } catch {
     return null
   }
 }
@@ -82,7 +82,7 @@ function attemptGeolocation(options: PositionOptions): Promise<{ latitude: numbe
           longitude: position.coords.longitude,
         })
       },
-      (error) => {
+      () => {
         clearTimeout(timeoutId)
         // For empty error objects, provide a generic message
         reject(new Error("Location access failed"))

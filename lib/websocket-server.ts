@@ -1,5 +1,4 @@
-import { WebSocketServer } from "ws"
-import type { WebSocket } from "ws"
+import { WebSocketServer, WebSocket } from "ws"
 import {
   saveMessage,
   upsertUser,

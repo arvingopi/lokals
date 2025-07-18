@@ -23,13 +23,13 @@ export function RoomInfo({ zipcode }: RoomInfoProps) {
             </div>
             {isCanadian ? (
               <p>
-                You're in the <strong>{zipcode}</strong> Forward Sortation Area room. This covers all postal codes
+                You&apos;re in the <strong>{zipcode}</strong> Forward Sortation Area room. This covers all postal codes
                 starting with <strong>{zipcode}</strong>
                 (e.g., {zipcode} 1A1, {zipcode} 2B2, etc.)
               </p>
             ) : (
               <p>
-                You're in the <strong>{zipcode}</strong> zipcode room. This is specific to the {zipcode} area.
+                You&apos;re in the <strong>{zipcode}</strong> zipcode room. This is specific to the {zipcode} area.
               </p>
             )}
           </div>

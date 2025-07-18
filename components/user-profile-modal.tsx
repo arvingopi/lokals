@@ -57,10 +57,6 @@ export function UserProfileModal({ isOpen, onClose, user }: UserProfileModalProp
     }
   }
 
-  const getAgeDisplay = (age?: string) => {
-    if (!age) return "Unknown"
-    return `${age} years old`
-  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

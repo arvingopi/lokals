@@ -156,12 +156,14 @@ async function testWithAuth() {
   } catch (error) {
     console.error('❌ Firebase authentication test failed:', error)
     
-    if (error.code === 'permission-denied') {
-      console.log('💡 Fix: Update Firebase security rules to allow access')
-    } else if (error.code === 'auth/invalid-api-key') {
-      console.log('💡 Fix: Check Firebase API key in environment variables')
-    } else if (error.code === 'unavailable') {
-      console.log('💡 Fix: Check Firebase service status')
+    if (error && typeof error === 'object' && 'code' in error) {
+      if (error.code === 'permission-denied') {
+        console.log('💡 Fix: Update Firebase security rules to allow access')
+      } else if (error.code === 'auth/invalid-api-key') {
+        console.log('💡 Fix: Check Firebase API key in environment variables')
+      } else if (error.code === 'unavailable') {
+        console.log('💡 Fix: Check Firebase service status')
+      }
     }
     
     process.exit(1)

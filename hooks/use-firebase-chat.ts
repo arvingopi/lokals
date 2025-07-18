@@ -24,6 +24,7 @@ interface FirebaseChatHook {
   sendMessage: (content: string) => Promise<void>
   sendPrivateMessage: (recipientId: string, content: string) => Promise<void>
   getPrivateMessages: (recipientId: string) => void
+  startPrivateChat: (recipientId: string) => void
   updatePresence: () => Promise<void>
 }
 

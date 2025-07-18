@@ -1,6 +1,5 @@
 // Session management for cross-device persistence
 import { neon } from "@neondatabase/serverless"
-import { getDeviceFingerprint } from "./device-fingerprint"
 import { generateUserId, generateUsername } from "./user-persistence"
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 
@@ -163,7 +162,7 @@ export async function createSession(profile: SessionProfile, deviceFingerprint: 
   // Link device to session
   await linkDeviceToSession(session.session_id, deviceFingerprint)
   
-  return session
+  return session as UserSession
 }
 
 // Link device to existing session
@@ -383,7 +382,7 @@ export async function getSessionDevices(sessionId: string): Promise<DeviceInfo[]
     ORDER BY sd.last_seen DESC
   `
   
-  return devices
+  return devices as DeviceInfo[]
 }
 
 // Remove device from session

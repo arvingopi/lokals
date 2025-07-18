@@ -1,5 +1,4 @@
 // Anonymous user persistence utilities with session support
-import { getCachedFingerprint } from './device-fingerprint'
 
 export interface PersistedUser {
   userId: string
@@ -79,16 +78,12 @@ export async function getOrCreateUser(): Promise<PersistedUser> {
   // First check localStorage
   const existingUser = loadUser()
   
-  // Get device fingerprint (cached for consistency across tabs)
-  const fingerprint = await getCachedFingerprint()
-  console.log('🔍 Device fingerprint:', fingerprint.substring(0, 8) + '...')
-  
   try {
     // Try to get session from API
     const response = await fetch('/api/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fingerprint })
+      body: JSON.stringify({})
     })
     
     if (!response.ok) {

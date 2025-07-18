@@ -22,7 +22,7 @@ setInterval(() => {
 
 export function rateLimit(options: RateLimitOptions) {
   return (request: NextRequest): NextResponse | null => {
-    const ip = request.ip || request.headers.get('x-forwarded-for') || 'unknown'
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
     const key = `${ip}:${request.nextUrl.pathname}`
     const now = Date.now()
     

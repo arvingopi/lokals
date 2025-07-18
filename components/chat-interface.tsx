@@ -1,22 +1,20 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Send, MapPin, ArrowLeft, Wifi, WifiOff, Heart, HeartOff } from "lucide-react"
 import { useFirebaseChat } from "@/hooks/use-firebase-chat"
-import type { Message, User } from "@/lib/firebase-database"
+import type { Message, User, FavouriteUser } from "@/lib/firebase-database"
 import { formatTime } from "@/lib/chat-utils"
 import { isCanadianFSA } from "@/lib/zipcode-utils"
-import { RoomInfo } from "@/components/room-info"
 import { ActiveUsersSidebar } from "@/components/active-users-sidebar"
 import { UserProfileModal } from "@/components/user-profile-modal"
-import { loadUser } from "@/lib/user-persistence"
 import firebaseAuthClient from "@/lib/firebase-auth-client"
+import type { SessionProfile } from "@/lib/firebase-auth-client"
 
 interface ChatInterfaceProps {
   zipcode: string
@@ -30,7 +28,7 @@ export function ChatInterface({ zipcode, username, userId }: ChatInterfaceProps)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const [profileModalUser, setProfileModalUser] = useState<User | null>(null)
-  const [currentUserProfile, setCurrentUserProfile] = useState<any>(null)
+  const [currentUserProfile, setCurrentUserProfile] = useState<SessionProfile | null>(null)
   const [favouriteUserIds, setFavouriteUserIds] = useState<Set<string>>(new Set())
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0)
 
@@ -49,7 +47,9 @@ export function ChatInterface({ zipcode, username, userId }: ChatInterfaceProps)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const isPrivateChat = selectedUserId !== null
-  const messages = isPrivateChat ? privateMessages.get(selectedUserId) || [] : roomMessages
+  const messages = useMemo(() => {
+    return isPrivateChat ? privateMessages.get(selectedUserId) || [] : roomMessages
+  }, [isPrivateChat, privateMessages, selectedUserId, roomMessages])
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -127,7 +127,7 @@ export function ChatInterface({ zipcode, username, userId }: ChatInterfaceProps)
         const response = await fetch(`/api/favourites?userId=${userId}`)
         if (response.ok) {
           const data = await response.json()
-          const favoriteIds = new Set(data.favourites.map((fav: any) => fav.favourite_user_id))
+          const favoriteIds = new Set<string>(data.favourites.map((fav: FavouriteUser) => fav.favourite_user_id))
           setFavouriteUserIds(favoriteIds)
         }
       } catch (error) {
@@ -192,6 +192,7 @@ export function ChatInterface({ zipcode, username, userId }: ChatInterfaceProps)
           onUserSelect={setSelectedUserId}
           onUserClick={handleUserClick}
           refreshTrigger={sidebarRefreshTrigger}
+          zipcode={zipcode}
         />
       </div>
 
@@ -357,7 +358,7 @@ export function ChatInterface({ zipcode, username, userId }: ChatInterfaceProps)
             zipcode: profileModalUser.zipcode,
             gender: profileModalUser.id === userId ? currentUserProfile?.gender : undefined,
             age: profileModalUser.id === userId ? currentUserProfile?.age : undefined,
-            joinDate: profileModalUser.id === userId ? currentUserProfile?.createdAt : profileModalUser.last_seen,
+            joinDate: profileModalUser.id === userId ? currentUserProfile?.createdAt : profileModalUser.last_seen?.toISOString(),
             isCurrentUser: profileModalUser.id === userId
           }}
         />

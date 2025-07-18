@@ -112,7 +112,7 @@ export async function saveMessage(
     VALUES (${content}, ${userId}, ${username}, ${zipcode}, ${isPrivate}, ${recipientId || null}, ${sessionId || null})
     RETURNING *
   `
-  return result[0] as Message
+  return (result as any)[0] as Message
 }
 
 export async function getRoomMessages(zipcode: string, limit = 50): Promise<Message[]> {
@@ -151,7 +151,7 @@ export async function upsertUser(userId: string, username: string, zipcode: stri
       session_id = EXCLUDED.session_id
     RETURNING *
   `
-  return result[0] as User
+  return (result as any)[0] as User
 }
 
 export async function updateUserPresence(userId: string): Promise<void> {
@@ -214,7 +214,7 @@ export async function savePrivateMessage(
     VALUES (${content}, ${senderId}, ${username}, '', TRUE, ${recipientId}, ${sessionId || null})
     RETURNING *
   `
-  return result[0] as Message
+  return (result as any)[0] as Message
 }
 
 export async function getMessages(zipcode: string, limit = 50): Promise<Message[]> {
@@ -235,7 +235,7 @@ export async function addFavouriteUser(userId: string, favouriteUserId: string, 
     ON CONFLICT (user_id, favourite_user_id) DO NOTHING
     RETURNING *
   `
-  return result[0] as FavouriteUser
+  return (result as any)[0] as FavouriteUser
 }
 
 export async function removeFavouriteUser(userId: string, favouriteUserId: string): Promise<void> {
@@ -260,7 +260,7 @@ export async function isFavouriteUser(userId: string, favouriteUserId: string): 
     WHERE user_id = ${userId} AND favourite_user_id = ${favouriteUserId}
     LIMIT 1
   `
-  return result.length > 0
+  return (result as any).length > 0
 }
 
 // Active chat operations

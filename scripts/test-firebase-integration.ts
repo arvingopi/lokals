@@ -131,11 +131,15 @@ async function testFirebaseIntegration() {
   } catch (error) {
     console.error('❌ Firebase integration test failed:', error)
     
-    if (error.code === 'auth/configuration-not-found') {
-      console.log('💡 Fix: Enable Anonymous Authentication in Firebase Console')
-    } else if (error.code === 'permission-denied') {
-      console.log('💡 Fix: Check your Firebase security rules')
-    } else if (error.message.includes('network')) {
+    if (error && typeof error === 'object' && 'code' in error) {
+      if (error.code === 'auth/configuration-not-found') {
+        console.log('💡 Fix: Enable Anonymous Authentication in Firebase Console')
+      } else if (error.code === 'permission-denied') {
+        console.log('💡 Fix: Check your Firebase security rules')
+      }
+    }
+    
+    if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' && error.message.includes('network')) {
       console.log('💡 Fix: Check your internet connection')
     }
     

@@ -66,7 +66,7 @@ async function testFirebaseBasic() {
   } catch (error) {
     console.error('❌ Firebase test failed:', error)
     
-    if (error.code === 'permission-denied') {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'permission-denied') {
       console.log('💡 Fix: Firebase Realtime Database is in locked mode')
       console.log('   Go to Firebase Console > Realtime Database > Rules')
       console.log('   Temporarily set rules to:')

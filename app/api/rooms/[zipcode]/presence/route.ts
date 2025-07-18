@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { updateUserPresence } from "@/lib/firebase-database"
 
-export async function POST(request: NextRequest, { params }: { params: { zipcode: string } }) {
+export async function POST(request: NextRequest, _context: { params: Promise<{ zipcode: string }> }) {
   try {
     const { userId } = await request.json()
 

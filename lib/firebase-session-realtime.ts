@@ -4,7 +4,6 @@ import {
   get, 
   set, 
   update,
-  child
 } from 'firebase/database'
 import { database } from './firebase'
 import { generateUserId, generateUsername } from './user-persistence'

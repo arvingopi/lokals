@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -48,7 +48,7 @@ export function ProfileStep2({ onLocationSet, username }: ProfileStep2Props) {
         setError("Location access failed. Please enter your zipcode manually.")
         setShowManualInput(true)
       }
-    } catch (err) {
+    } catch {
       setError("Location detection failed. Please enter your zipcode manually.")
       setShowManualInput(true)
     } finally {

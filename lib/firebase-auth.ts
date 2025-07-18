@@ -18,7 +18,6 @@ import {
   Timestamp
 } from 'firebase/firestore'
 import { auth, firestore } from './firebase'
-import { getDeviceFingerprint } from './device-fingerprint'
 import { generateUserId, generateUsername } from './user-persistence'
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 
@@ -123,10 +122,10 @@ function encryptProfile(profile: SessionProfile): string {
 function decryptProfile(encryptedData: string): SessionProfile {
   try {
     return decryptProfileNew(encryptedData)
-  } catch (newDecryptError) {
+  } catch (_newDecryptError) {
     try {
       return decryptProfileLegacy(encryptedData)
-    } catch (legacyDecryptError) {
+    } catch (_legacyDecryptError) {
       throw new Error('Invalid or corrupted session data')
     }
   }
@@ -254,7 +253,6 @@ class FirebaseAuthManager {
     expiresAt.setFullYear(expiresAt.getFullYear() + 1) // 1 year expiry
     
     const encryptedData = encryptProfile(profile)
-    const deviceFingerprint = await getDeviceFingerprint()
     
     const sessionData: FirebaseUserSession = {
       sessionId: firebaseUid, // Use Firebase UID as session ID
@@ -266,7 +264,7 @@ class FirebaseAuthManager {
       deviceCount: 1,
       lastActive: now,
       devices: {
-        [deviceFingerprint]: {
+        'web-device': {
           deviceType: 'web',
           authorizedAt: now,
           lastSeen: now,
@@ -378,10 +376,9 @@ class FirebaseAuthManager {
       // Sign in to the session
       const sessionDoc = await getDoc(doc(firestore, 'user_sessions', data.sessionId))
       if (sessionDoc.exists()) {
-        const deviceFingerprint = await getDeviceFingerprint()
-        
+            
         // Add device to session
-        await this.linkDeviceToSession(deviceFingerprint)
+        await this.linkDeviceToSession('web-device')
         
         // Update transfer code usage
         await updateDoc(doc(firestore, 'device_transfer_codes', code), {
@@ -445,12 +442,12 @@ class FirebaseAuthManager {
 const firebaseAuthManager = new FirebaseAuthManager()
 
 // Legacy compatibility functions
-export async function createSession(profile: SessionProfile, deviceFingerprint: string): Promise<UserSession> {
+export async function createSession(_profile: SessionProfile, _deviceFingerprint: string): Promise<UserSession> {
   const result = await firebaseAuthManager.signInAnonymously()
   return result.session
 }
 
-export async function getOrCreateSession(deviceFingerprint: string): Promise<{
+export async function getOrCreateSession(_deviceFingerprint: string): Promise<{
   session: UserSession
   profile: SessionProfile
   isNew: boolean
@@ -458,7 +455,7 @@ export async function getOrCreateSession(deviceFingerprint: string): Promise<{
   return await firebaseAuthManager.signInAnonymously()
 }
 
-export async function getSessionByDevice(deviceFingerprint: string): Promise<{
+export async function getSessionByDevice(_deviceFingerprint: string): Promise<{
   session: UserSession | null
   profile: SessionProfile | null
 }> {
@@ -479,11 +476,11 @@ export async function linkDeviceToSession(sessionId: string, deviceFingerprint: 
   await firebaseAuthManager.linkDeviceToSession(deviceFingerprint, deviceType)
 }
 
-export async function generateTransferCode(sessionId: string): Promise<string> {
+export async function generateTransferCode(_sessionId: string): Promise<string> {
   return await firebaseAuthManager.generateTransferCode()
 }
 
-export async function useTransferCode(code: string, deviceFingerprint: string): Promise<{
+export async function useTransferCode(code: string, _deviceFingerprint: string): Promise<{
   success: boolean
   sessionId?: string
   error?: string
