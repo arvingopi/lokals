@@ -3,13 +3,15 @@
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { ChatInterface } from "@/components/chat-interface"
-import { EmailInput } from "@/components/email-input"
+import { AuthLanding } from "@/components/auth-landing"
+import { SignIn } from "@/components/sign-in"
+import { SignUp } from "@/components/sign-up"
 import { ProfileStep1 } from "@/components/profile-step1"
 import { ProfileStep2 } from "@/components/profile-step2"
 import firebaseAuthClient from "@/lib/firebase-auth-client"
 import { getCurrentLocation, getZipcodeFromCoordinates } from "@/lib/zipcode-utils"
 
-type AuthState = 'loading' | 'email_input' | 'profile_step1' | 'profile_step2' | 'authenticated'
+type AuthState = 'loading' | 'auth_landing' | 'sign_in' | 'sign_up' | 'profile_step1' | 'profile_step2' | 'authenticated'
 
 export default function HomePage() {
   const searchParams = useSearchParams()
@@ -24,36 +26,62 @@ export default function HomePage() {
   useEffect(() => {
     const checkAuthState = async () => {
       try {
-        console.log('🔄 Checking authentication state...')
+        console.log('🔄 Waiting for Firebase auth state...')
         
-        // Check if user is already authenticated
-        const currentUser = firebaseAuthClient.getCurrentUser()
-        const currentProfile = firebaseAuthClient.getCurrentProfile()
+        // Check for post-verification auto-signin first
+        const postVerificationHandled = await firebaseAuthClient.checkAndHandlePostVerification()
         
-        if (currentUser && currentProfile) {
-          console.log('👤 User already authenticated:', currentProfile)
-          setUserId(currentProfile.userId)
-          setSelectedUsername(currentProfile.username)
-          setProfile(currentProfile)
+        if (postVerificationHandled) {
+          console.log('✅ Post-verification auto-signin completed')
+          // Let the auth state change trigger the next check
+          return
+        }
+        
+        // Wait for Firebase auth state to be initialized
+        const isAuthenticated = await firebaseAuthClient.waitForAuthState()
+        
+        if (isAuthenticated) {
+          console.log('🔄 User is authenticated, loading profile...')
           
-          if (currentProfile.zipcode && currentProfile.gender && currentProfile.age && currentProfile.username) {
-            // Complete profile - go to chat
-            setSelectedZipcode(currentProfile.zipcode)
-            setAuthState('authenticated')
-          } else if (currentProfile.username && currentProfile.gender && currentProfile.age) {
-            // Has basic profile, missing location - try auto-detect then go to step 2 if needed
-            await tryAutoDetectLocation(currentProfile)
+          // Get current user and profile
+          const currentUser = firebaseAuthClient.getCurrentUser()
+          const currentProfile = firebaseAuthClient.getCurrentProfile()
+          
+          if (currentUser && currentProfile) {
+            console.log('👤 User profile loaded:', currentProfile)
+            setUserId(currentProfile.userId)
+            setSelectedUsername(currentProfile.username)
+            setProfile(currentProfile)
+            
+            if (currentProfile.zipcode && currentProfile.gender && currentProfile.age && currentProfile.username) {
+              // Complete profile - go to chat
+              setSelectedZipcode(currentProfile.zipcode)
+              setAuthState('authenticated')
+            } else if (currentProfile.username && currentProfile.gender && currentProfile.age) {
+              // Has basic profile, missing location - try auto-detect then go to step 2 if needed
+              await tryAutoDetectLocation(currentProfile)
+            } else {
+              // Missing basic profile - go to step 1
+              setAuthState('profile_step1')
+            }
           } else {
-            // Missing basic profile - go to step 1
+            // Auth state says authenticated but no profile - go to step 1
             setAuthState('profile_step1')
           }
         } else {
-          // Not authenticated - start with email input
-          setAuthState('email_input')
+          // Not authenticated - check if coming from email verification
+          const verified = searchParams.get('verified')
+          if (verified) {
+            console.log('✅ User verified email, showing sign in')
+            setAuthState('sign_in')
+          } else {
+            console.log('🔑 User not authenticated, showing auth landing')
+            setAuthState('auth_landing')
+          }
         }
       } catch (error) {
         console.error('Failed to check auth state:', error)
-        setAuthState('email_input')
+        setAuthState('auth_landing')
       } finally {
         setIsLoading(false)
       }
@@ -61,6 +89,37 @@ export default function HomePage() {
     
     checkAuthState()
   }, [])
+
+  // Listen for auth state changes (e.g., after post-verification signin)
+  useEffect(() => {
+    const unsubscribe = firebaseAuthClient.onAuthStateChange(async (user) => {
+      if (user && authState === 'loading') {
+        console.log('🔄 Auth state changed, checking user profile...')
+        
+        const currentProfile = firebaseAuthClient.getCurrentProfile()
+        if (currentProfile) {
+          setUserId(currentProfile.userId)
+          setSelectedUsername(currentProfile.username)
+          setProfile(currentProfile)
+          
+          if (currentProfile.zipcode && currentProfile.gender && currentProfile.age && currentProfile.username) {
+            setSelectedZipcode(currentProfile.zipcode)
+            setAuthState('authenticated')
+          } else if (currentProfile.username && currentProfile.gender && currentProfile.age) {
+            await tryAutoDetectLocation(currentProfile)
+          } else {
+            setAuthState('profile_step1')
+          }
+        } else {
+          setAuthState('profile_step1')
+        }
+        
+        setIsLoading(false)
+      }
+    })
+
+    return () => unsubscribe()
+  }, [authState])
 
   // Try to auto-detect location in background
   const tryAutoDetectLocation = async (currentProfile: any) => {
@@ -160,8 +219,30 @@ export default function HomePage() {
 
   // Render based on authentication state
   switch (authState) {
-    case 'email_input':
-      return <EmailInput onAuthSuccess={handleAuthSuccess} />
+    case 'auth_landing':
+      return (
+        <AuthLanding 
+          onSignInClick={() => setAuthState('sign_in')}
+          onSignUpClick={() => setAuthState('sign_up')}
+        />
+      )
+    
+    case 'sign_in':
+      return (
+        <SignIn 
+          onAuthSuccess={handleAuthSuccess}
+          onBackClick={() => setAuthState('auth_landing')}
+          onSignUpClick={() => setAuthState('sign_up')}
+        />
+      )
+    
+    case 'sign_up':
+      return (
+        <SignUp 
+          onBackClick={() => setAuthState('auth_landing')}
+          onSignInClick={() => setAuthState('sign_in')}
+        />
+      )
     
     case 'profile_step1':
       return (

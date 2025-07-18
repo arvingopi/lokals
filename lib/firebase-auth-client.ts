@@ -4,7 +4,8 @@ import {
   signInWithEmailAndPassword,
   onAuthStateChanged, 
   User as FirebaseUser,
-  signOut
+  signOut,
+  sendEmailVerification
 } from 'firebase/auth'
 import { 
   doc, 
@@ -65,21 +66,126 @@ class FirebaseAuthClient {
   private currentSession: UserSession | null = null
   private currentProfile: SessionProfile | null = null
   private initialized = false
+  private authStateResolve: ((value: boolean) => void) | null = null
+  private authStatePromise: Promise<boolean>
+  
+  private readonly SESSION_STORAGE_KEY = 'firebase_user_session'
+  private readonly PROFILE_STORAGE_KEY = 'firebase_user_profile'
 
   constructor() {
+    this.authStatePromise = new Promise((resolve) => {
+      this.authStateResolve = resolve
+    })
     this.initialize()
+  }
+
+  // Save session and profile to localStorage
+  private saveToLocalStorage() {
+    if (typeof window === 'undefined') return
+    
+    try {
+      if (this.currentSession) {
+        localStorage.setItem(this.SESSION_STORAGE_KEY, JSON.stringify(this.currentSession))
+      }
+      if (this.currentProfile) {
+        localStorage.setItem(this.PROFILE_STORAGE_KEY, JSON.stringify(this.currentProfile))
+      }
+    } catch (error) {
+      console.error('Failed to save auth data to localStorage:', error)
+    }
+  }
+
+  // Load session and profile from localStorage
+  private loadFromLocalStorage() {
+    if (typeof window === 'undefined') return
+    
+    try {
+      const sessionData = localStorage.getItem(this.SESSION_STORAGE_KEY)
+      if (sessionData && !this.currentSession) {
+        const parsedSession = JSON.parse(sessionData)
+        // Validate session data structure
+        if (parsedSession && parsedSession.session_id) {
+          this.currentSession = parsedSession
+          console.log('✅ Session restored from localStorage')
+        } else {
+          console.warn('⚠️ Invalid session data in localStorage, clearing...')
+          localStorage.removeItem(this.SESSION_STORAGE_KEY)
+        }
+      }
+      
+      const profileData = localStorage.getItem(this.PROFILE_STORAGE_KEY)
+      if (profileData && !this.currentProfile) {
+        const parsedProfile = JSON.parse(profileData)
+        // Validate profile data structure
+        if (parsedProfile && parsedProfile.userId && parsedProfile.username) {
+          this.currentProfile = parsedProfile
+          console.log('✅ Profile restored from localStorage:', parsedProfile.username)
+        } else {
+          console.warn('⚠️ Invalid profile data in localStorage, clearing...')
+          localStorage.removeItem(this.PROFILE_STORAGE_KEY)
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to load auth data from localStorage:', error)
+      // Clear corrupted data
+      this.clearLocalStorage()
+    }
+  }
+
+  // Clear localStorage data
+  private clearLocalStorage() {
+    if (typeof window === 'undefined') return
+    
+    try {
+      localStorage.removeItem(this.SESSION_STORAGE_KEY)
+      localStorage.removeItem(this.PROFILE_STORAGE_KEY)
+    } catch (error) {
+      console.error('Failed to clear auth data from localStorage:', error)
+    }
   }
 
   private async initialize() {
     if (this.initialized) return
     
+    // Load cached data from localStorage first
+    this.loadFromLocalStorage()
+    
     onAuthStateChanged(auth, async (user) => {
       this.currentUser = user
       if (user) {
-        await this.loadUserSession(user.uid)
+        // If we don't have profile data in memory, try to load from Firestore
+        if (!this.currentProfile) {
+          console.log('🔄 Loading user session for authenticated user...')
+          await this.loadUserSession(user.uid)
+          
+          // If still no profile after loading, this might indicate a data issue
+          if (!this.currentProfile) {
+            console.warn('⚠️ No profile found for authenticated user. This may indicate a sync issue.')
+          }
+        } else {
+          console.log('✅ User profile already loaded:', this.currentProfile.username)
+        }
+      } else {
+        // User signed out, clear data
+        console.log('🔓 User signed out, clearing session data')
+        this.currentSession = null
+        this.currentProfile = null
+        this.clearLocalStorage()
       }
       this.initialized = true
+      if (this.authStateResolve) {
+        this.authStateResolve(!!user)
+        this.authStateResolve = null
+      }
     })
+  }
+
+  // Wait for auth state to be initialized
+  async waitForAuthState(): Promise<boolean> {
+    if (this.initialized) {
+      return !!this.currentUser
+    }
+    return this.authStatePromise
   }
 
   private async loadUserSession(firebaseUid: string) {
@@ -96,42 +202,59 @@ class FirebaseAuthClient {
           last_active: data.lastActive.toDate()
         }
         this.currentProfile = data.profileData
+        
+        // Save to localStorage for persistence
+        this.saveToLocalStorage()
+        console.log('✅ User session loaded and saved to localStorage')
       }
     } catch (error) {
       console.error('Failed to load user session:', error)
     }
   }
 
-  async signInWithEmail(email: string, password: string): Promise<{
+  async signInWithEmail(email: string, password: string, skipVerificationCheck = false): Promise<{
     session: UserSession
     profile: SessionProfile
     isNew: boolean
   }> {
     try {
-      // Try to sign in first
+      // Sign in with existing account
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
       const firebaseUser = userCredential.user
       
-      return await this.getOrCreateUserSession(firebaseUser, email)
-    } catch (error: any) {
-      // If user doesn't exist, create a new account
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-        try {
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-          const firebaseUser = userCredential.user
-          
-          return await this.getOrCreateUserSession(firebaseUser, email)
-        } catch (createError: any) {
-          // If account already exists but password was wrong, try again with sign in
-          if (createError.code === 'auth/email-already-in-use') {
-            throw new Error('An account with this email already exists. Please check your password and try again.')
-          }
-          console.error('Failed to create user:', createError)
-          throw createError
-        }
+      // Check if email is verified (unless we're doing post-verification signin)
+      if (!skipVerificationCheck && !firebaseUser.emailVerified) {
+        throw new Error('Please verify your email before signing in. Check your inbox for the verification link.')
       }
       
+      return await this.getOrCreateUserSession(firebaseUser, email)
+    } catch (error: any) {
       console.error('Sign in failed:', error)
+      throw error
+    }
+  }
+
+  async signUpWithEmailVerification(email: string, password: string): Promise<void> {
+    try {
+      // Create new account
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      const firebaseUser = userCredential.user
+      
+      // Store password temporarily in sessionStorage for auto-signin after verification
+      sessionStorage.setItem('temp_auth_pwd', password)
+      
+      // Send verification email
+      await sendEmailVerification(firebaseUser, {
+        url: `${window.location.origin}/auth/verify?email=${encodeURIComponent(email)}`,
+        handleCodeInApp: true
+      })
+      
+      // Sign out immediately so user must verify email first
+      await signOut(auth)
+      
+      console.log('✅ Verification email sent successfully')
+    } catch (error: any) {
+      console.error('Sign up failed:', error)
       throw error
     }
   }
@@ -167,6 +290,9 @@ class FirebaseAuthClient {
         this.currentSession = session
         this.currentProfile = profile
         
+        // Save to localStorage for persistence
+        this.saveToLocalStorage()
+        
         return { session, profile, isNew: false }
       } else {
         // New session - create with email
@@ -175,13 +301,19 @@ class FirebaseAuthClient {
           email: email,
           username: generateUsername(),
           createdAt: new Date().toISOString(),
-          isLocked: false
+          isLocked: false,
+          zipcode: undefined,
+          gender: undefined,
+          age: undefined
         }
         
         const session = await this.createSession(profile, firebaseUser.uid)
         
         this.currentSession = session
         this.currentProfile = profile
+        
+        // Save to localStorage for persistence
+        this.saveToLocalStorage()
         
         return { session, profile, isNew: true }
       }
@@ -264,6 +396,9 @@ class FirebaseAuthClient {
     if (this.currentSession) {
       this.currentSession.encrypted_profile_data = JSON.stringify(updatedProfile)
     }
+    
+    // Save to localStorage for persistence
+    this.saveToLocalStorage()
   }
 
   async lockProfile(): Promise<void> {
@@ -283,7 +418,49 @@ class FirebaseAuthClient {
   }
 
   getCurrentProfile(): SessionProfile | null {
+    // If profile is not in memory, try to load from localStorage
+    if (!this.currentProfile) {
+      this.loadFromLocalStorage()
+      
+      // If still no profile but we have a Firebase user, try to reload from Firestore
+      if (!this.currentProfile && this.currentUser) {
+        console.warn('⚠️ Profile missing but Firebase user exists, attempting reload...')
+        this.loadUserSession(this.currentUser.uid).catch(error => {
+          console.error('❌ Failed to reload user session:', error)
+        })
+      }
+    }
     return this.currentProfile
+  }
+
+  async checkAndHandlePostVerification(): Promise<boolean> {
+    try {
+      // Check if we have a verified email and temporary password
+      const verifiedEmail = sessionStorage.getItem('verified_email')
+      const tempPassword = sessionStorage.getItem('temp_auth_pwd')
+      
+      if (verifiedEmail && tempPassword) {
+        console.log('🔄 Post-verification auto-signin detected...')
+        
+        // Clear temporary storage
+        sessionStorage.removeItem('verified_email')
+        sessionStorage.removeItem('temp_auth_pwd')
+        
+        // Sign in with the credentials, skipping verification check since we just verified
+        const result = await this.signInWithEmail(verifiedEmail, tempPassword, true)
+        
+        console.log('✅ Auto-signin successful after email verification')
+        return true
+      }
+      
+      return false
+    } catch (error) {
+      console.error('❌ Post-verification auto-signin failed:', error)
+      // Clear any remaining temp data
+      sessionStorage.removeItem('verified_email')
+      sessionStorage.removeItem('temp_auth_pwd')
+      return false
+    }
   }
 
   async signOut(): Promise<void> {
@@ -291,6 +468,11 @@ class FirebaseAuthClient {
     this.currentUser = null
     this.currentSession = null
     this.currentProfile = null
+    this.clearLocalStorage()
+  }
+
+  onAuthStateChange(callback: (user: FirebaseUser | null) => void): () => void {
+    return onAuthStateChanged(auth, callback)
   }
 }
 

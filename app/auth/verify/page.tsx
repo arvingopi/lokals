@@ -1,47 +1,67 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { MapPin, Loader2, CheckCircle, XCircle } from "lucide-react"
-import { signInWithMagicLink } from "@/lib/firebase-auth-client"
+import { applyActionCode } from "firebase/auth"
+import { auth } from "@/lib/firebase"
 
-export default function AuthVerifyPage() {
+export default function EmailVerificationPage() {
   const router = useRouter()
-  const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying')
-  const [error, setError] = useState<string>("")
+  const searchParams = useSearchParams()
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    const verifyMagicLink = async () => {
+    const verifyEmail = async () => {
       try {
-        const result = await signInWithMagicLink()
+        const actionCode = searchParams.get('oobCode')
         
-        if (result.isNew) {
-          // New user - redirect to profile setup
-          setStatus('success')
-          setTimeout(() => {
-            router.push('/?setup=true')
-          }, 2000)
-        } else {
-          // Existing user - redirect to app
-          setStatus('success')
-          setTimeout(() => {
-            router.push('/')
-          }, 2000)
+        if (!actionCode) {
+          setError('Invalid verification link.')
+          setStatus('error')
+          return
         }
-      } catch (error) {
-        console.error('Magic link verification failed:', error)
+
+        // Apply the email verification
+        await applyActionCode(auth, actionCode)
+        
+        console.log('✅ Email verified successfully')
+        
+        // Get the email from the URL
+        const email = searchParams.get('email')
+        
+        if (email) {
+          // Store verified email in sessionStorage for auto-signin
+          sessionStorage.setItem('verified_email', email)
+        }
+        
+        setStatus('success')
+        
+        // Redirect to home where auto-signin will happen
+        setTimeout(() => {
+          router.push('/')
+        }, 2000)
+        
+      } catch (error: any) {
+        console.error('Email verification failed:', error)
+        
+        let errorMessage = 'Email verification failed.'
+        if (error.code === 'auth/invalid-action-code') {
+          errorMessage = 'Invalid or expired verification link.'
+        } else if (error.code === 'auth/expired-action-code') {
+          errorMessage = 'Verification link has expired.'
+        }
+        
+        setError(errorMessage)
         setStatus('error')
-        if (error instanceof Error) {
-          setError(error.message)
-        } else {
-          setError('Authentication failed. Please try again.')
-        }
       }
     }
 
-    verifyMagicLink()
-  }, [router])
+    verifyEmail()
+  }, [searchParams, router])
 
   const handleRetry = () => {
     router.push('/')
@@ -71,15 +91,15 @@ export default function AuthVerifyPage() {
 
         <CardContent className="space-y-6">
           <div className="text-center space-y-4">
-            {status === 'verifying' && (
+            {status === 'loading' && (
               <>
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center mx-auto">
                   <Loader2 className="h-8 w-8 text-white animate-spin" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-white mb-2">Verifying...</h2>
+                  <h2 className="text-xl font-bold text-white mb-2">Verifying Email</h2>
                   <p className="text-white/70 text-sm">
-                    Please wait while we verify your magic link.
+                    Please wait while we verify your email address...
                   </p>
                 </div>
               </>
@@ -87,13 +107,16 @@ export default function AuthVerifyPage() {
 
             {status === 'success' && (
               <>
-                <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full flex items-center justify-center mx-auto">
+                <div className="w-16 h-16 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto">
                   <CheckCircle className="h-8 w-8 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-white mb-2">Success!</h2>
+                  <h2 className="text-xl font-bold text-white mb-2">Email Verified!</h2>
                   <p className="text-white/70 text-sm">
-                    You've been signed in successfully. Redirecting...
+                    Your email has been successfully verified. You can now sign in to complete your profile setup.
+                  </p>
+                  <p className="text-emerald-300 text-sm mt-2">
+                    Redirecting you to sign in...
                   </p>
                 </div>
               </>
@@ -105,20 +128,26 @@ export default function AuthVerifyPage() {
                   <XCircle className="h-8 w-8 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-white mb-2">Authentication Failed</h2>
-                  <p className="text-white/70 text-sm mb-4">
-                    {error || 'Something went wrong with your magic link.'}
+                  <h2 className="text-xl font-bold text-white mb-2">Verification Failed</h2>
+                  <p className="text-white/70 text-sm">
+                    {error}
                   </p>
-                  <button
-                    onClick={handleRetry}
-                    className="text-emerald-300 hover:text-emerald-200 underline text-sm"
-                  >
-                    Try signing in again
-                  </button>
+                  <p className="text-white/60 text-xs mt-3">
+                    You may need to request a new verification email.
+                  </p>
                 </div>
               </>
             )}
           </div>
+
+          {status === 'error' && (
+            <Button 
+              onClick={handleRetry}
+              className="w-full bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white h-12 font-bold shadow-lg"
+            >
+              Back to Sign Up
+            </Button>
+          )}
         </CardContent>
       </Card>
     </div>

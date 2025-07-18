@@ -1,6 +1,6 @@
 // Firebase configuration for client-side SDK
 import { initializeApp } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { getDatabase } from 'firebase/database'
 
@@ -21,5 +21,10 @@ const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const firestore = getFirestore(app)
 export const database = getDatabase(app)
+
+// Configure auth persistence to survive browser restarts
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.error('Failed to set Firebase auth persistence:', error)
+})
 
 export default app

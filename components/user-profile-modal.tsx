@@ -3,7 +3,8 @@
 import React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { X, User, MapPin, Calendar, Heart } from "lucide-react"
+import { X, User, MapPin, Calendar, Heart, LogOut } from "lucide-react"
+import firebaseAuthClient from "@/lib/firebase-auth-client"
 
 interface UserProfileModalProps {
   isOpen: boolean
@@ -21,6 +22,17 @@ interface UserProfileModalProps {
 
 export function UserProfileModal({ isOpen, onClose, user }: UserProfileModalProps) {
   if (!isOpen) return null
+
+  const handleLogout = async () => {
+    try {
+      await firebaseAuthClient.signOut()
+      onClose() // Close modal
+      // Redirect to auth landing page
+      window.location.href = '/'
+    } catch (error) {
+      console.error('❌ Failed to sign out:', error)
+    }
+  }
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Unknown"
@@ -153,9 +165,23 @@ export function UserProfileModal({ isOpen, onClose, user }: UserProfileModalProp
           {/* Note */}
           <div className="text-center p-3 bg-blue-500/20 rounded-xl">
             <p className="text-blue-200 text-sm">
-              🔒 Profile locked to this device. No personal information collected.
+              🔒 Profile is locked and cannot be modified. Your email is kept private.
             </p>
           </div>
+
+          {/* Logout Button - Only show for current user */}
+          {user.isCurrentUser && (
+            <div className="pt-2">
+              <Button
+                onClick={handleLogout}
+                variant="outline"
+                className="w-full bg-red-500/20 border-red-500/30 text-red-300 hover:bg-red-500/30 hover:text-red-200 rounded-xl"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

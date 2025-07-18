@@ -1,19 +1,20 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
+import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { MapPin, Mail, Loader2, AlertCircle } from "lucide-react"
+import { MapPin, Mail, Loader2, AlertCircle, ArrowLeft, LogIn } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { signInWithEmail } from "@/lib/firebase-auth-client"
+import firebaseAuthClient from "@/lib/firebase-auth-client"
 
-interface EmailInputProps {
+interface SignInProps {
   onAuthSuccess: (session: any, profile: any, isNew: boolean) => void
+  onBackClick: () => void
+  onSignUpClick: () => void
 }
 
-export function EmailInput({ onAuthSuccess }: EmailInputProps) {
+export function SignIn({ onAuthSuccess, onBackClick, onSignUpClick }: SignInProps) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -43,28 +44,23 @@ export function EmailInput({ onAuthSuccess }: EmailInputProps) {
       return
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long.")
-      return
-    }
-
     setIsLoading(true)
 
     try {
-      const result = await signInWithEmail(email.toLowerCase().trim(), password)
+      const result = await firebaseAuthClient.signInWithEmail(email.toLowerCase().trim(), password)
       onAuthSuccess(result.session, result.profile, result.isNew)
     } catch (error: any) {
-      console.error("Authentication failed:", error)
+      console.error("Sign in failed:", error)
       
-      let errorMessage = "Authentication failed. Please try again."
+      let errorMessage = "Sign in failed. Please try again."
       if (error.code === 'auth/invalid-email') {
         errorMessage = "Please enter a valid email address."
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = "Password must be at least 6 characters long."
-      } else if (error.code === 'auth/email-already-in-use') {
-        errorMessage = "An account with this email already exists. Please sign in."
+      } else if (error.code === 'auth/user-not-found') {
+        errorMessage = "No account found with this email. Please sign up first."
       } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         errorMessage = "Incorrect password. Please try again."
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = "Too many failed attempts. Please try again later."
       } else if (error.message) {
         errorMessage = error.message
       }
@@ -86,14 +82,22 @@ export function EmailInput({ onAuthSuccess }: EmailInputProps) {
         border: '1px solid rgba(255, 255, 255, 0.2)'
       }}>
         <CardHeader className="text-center pb-6">
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-blue-500 rounded-2xl flex items-center justify-center shadow-xl">
-              <MapPin className="h-8 w-8 text-white" />
+          <div className="flex items-center justify-between mb-4">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={onBackClick}
+              className="text-white hover:bg-white/20 rounded-xl"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-blue-500 rounded-lg flex items-center justify-center">
+                <MapPin className="h-4 w-4 text-white" />
+              </div>
+              <CardTitle className="text-xl font-black text-white">Lokals</CardTitle>
             </div>
-            <div>
-              <CardTitle className="text-3xl font-black text-white">Lokals</CardTitle>
-              <p className="text-emerald-300 font-medium">Chat anonymously</p>
-            </div>
+            <div className="w-8" /> {/* Spacer for centering */}
           </div>
         </CardHeader>
 
@@ -107,15 +111,12 @@ export function EmailInput({ onAuthSuccess }: EmailInputProps) {
 
           <div className="text-center space-y-4">
             <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center mx-auto">
-              <Mail className="h-8 w-8 text-white" />
+              <LogIn className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white mb-2">Sign in with Email</h2>
+              <h2 className="text-xl font-bold text-white mb-2">Welcome Back</h2>
               <p className="text-white/70 text-sm">
-                Enter your email and password to sign in or create a new account.
-                <span className="block mt-1 text-emerald-300 font-medium">
-                  🔒 Your email is never shared with other users
-                </span>
+                Sign in to your account to continue chatting.
               </p>
             </div>
           </div>
@@ -129,7 +130,10 @@ export function EmailInput({ onAuthSuccess }: EmailInputProps) {
                 placeholder="Enter your email address"
                 disabled={isLoading}
                 className="bg-white/10 border-white/20 text-white placeholder:text-white/60 focus:bg-white/20 h-12"
-                autoComplete="email"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck="false"
                 autoFocus
               />
             </div>
@@ -139,10 +143,10 @@ export function EmailInput({ onAuthSuccess }: EmailInputProps) {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password (min 6 characters)"
+                placeholder="Enter your password"
                 disabled={isLoading}
                 className="bg-white/10 border-white/20 text-white placeholder:text-white/60 focus:bg-white/20 h-12"
-                autoComplete="current-password"
+                autoComplete="new-password"
               />
             </div>
 
@@ -158,16 +162,22 @@ export function EmailInput({ onAuthSuccess }: EmailInputProps) {
                 </>
               ) : (
                 <>
-                  <Mail className="h-4 w-4 mr-2" />
-                  Sign In / Sign Up
+                  <LogIn className="h-4 w-4 mr-2" />
+                  Sign In
                 </>
               )}
             </Button>
           </form>
 
           <div className="text-center">
-            <p className="text-white/60 text-xs">
-              By continuing, you agree to our terms and that your email will remain private.
+            <p className="text-white/60 text-sm">
+              Don't have an account?{" "}
+              <button 
+                onClick={onSignUpClick}
+                className="text-emerald-300 hover:text-emerald-200 font-medium underline"
+              >
+                Create one here
+              </button>
             </p>
           </div>
         </CardContent>

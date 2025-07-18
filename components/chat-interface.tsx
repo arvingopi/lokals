@@ -16,6 +16,7 @@ import { RoomInfo } from "@/components/room-info"
 import { ActiveUsersSidebar } from "@/components/active-users-sidebar"
 import { UserProfileModal } from "@/components/user-profile-modal"
 import { loadUser } from "@/lib/user-persistence"
+import firebaseAuthClient from "@/lib/firebase-auth-client"
 
 interface ChatInterfaceProps {
   zipcode: string
@@ -55,8 +56,9 @@ export function ChatInterface({ zipcode, username, userId }: ChatInterfaceProps)
 
   // Load current user profile data on mount
   useEffect(() => {
-    const userProfile = loadUser()
-    setCurrentUserProfile(userProfile)
+    // Get the full profile from Firebase auth client instead of legacy loadUser
+    const profile = firebaseAuthClient.getCurrentProfile()
+    setCurrentUserProfile(profile)
   }, [])
 
   // Load private messages when selecting a user
