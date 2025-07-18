@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Lokals.chat is a modern, anonymous location-based chat application built with Next.js 15.2.4 that enables real-time communication between users in the same zip code area. It features public chat rooms organized by zip code, private messaging capabilities, and sophisticated device fingerprinting for anonymous user persistence. The application uses a modern glassmorphism design with cross-browser compatibility.
+Lokals.chat is a modern location-based chat application built with Next.js 15.2.4 that enables real-time communication between users in the same zip code area. It features email/password authentication with email verification, public chat rooms organized by zip code, private messaging capabilities, and comprehensive user profile management. The application uses a modern glassmorphism design with cross-browser compatibility and is built for production deployment.
 
 ## Key Commands
 
@@ -13,11 +13,8 @@ Lokals.chat is a modern, anonymous location-based chat application built with Ne
 # Install dependencies
 npm install
 
-# Initialize database (run once after setting DATABASE_URL)
+# Initialize Firebase database (run once after setting Firebase config)
 npx tsx scripts/init-db.ts
-
-# Start WebSocket server (required for real-time features)
-npx tsx scripts/start-websocket.ts
 
 # Start development server with Turbopack
 npm run dev
@@ -34,7 +31,16 @@ npm run typecheck
 
 ### Environment Variables Required
 ```bash
-DATABASE_URL=your_neon_database_url
+# Firebase Configuration
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_DATABASE_URL=https://your_project_id-default-rtdb.firebaseio.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+
+# Legacy (for migration scripts)
 SESSION_ENCRYPTION_KEY=64_character_hex_key_for_aes_256_encryption
 ```
 
@@ -43,43 +49,57 @@ SESSION_ENCRYPTION_KEY=64_character_hex_key_for_aes_256_encryption
 ### Tech Stack
 - **Frontend**: Next.js 15.2.4 (App Router), React 19, TypeScript, Tailwind CSS v4
 - **UI Components**: shadcn/ui with Radix UI primitives
-- **Database**: Neon (serverless Postgres)
-- **Real-time**: Custom WebSocket server implementation
-- **Security**: AES-256-GCM encryption, rate limiting, input validation
-- **Authentication**: Device fingerprinting (no user registration required)
+- **Database**: Firebase Realtime Database + Firestore (dual-database architecture)
+- **Real-time**: Firebase Realtime Database for messaging and presence
+- **Authentication**: Firebase Authentication with email/password + email verification
+- **Security**: Firebase Security Rules, input validation, rate limiting
 
 ### Directory Structure
 - `app/` - Next.js App Router pages and API routes
-  - `api/` - Server endpoints for database operations, session management
+  - `api/` - Server endpoints for Firebase operations and legacy API compatibility
+  - `auth/verify/` - Email verification page
   - Client components use `"use client"` directive
 - `components/` - React components including shadcn/ui components
   - `ui/` - shadcn/ui components
-  - Custom components for chat interface, onboarding, modals
-- `hooks/` - Custom React hooks for WebSocket and chat functionality
+  - `auth-landing.tsx`, `sign-in.tsx`, `sign-up.tsx` - Authentication components
+  - `chat-interface.tsx`, `profile-step1.tsx`, `profile-step2.tsx` - Main app components
+- `hooks/` - Custom React hooks for Firebase chat and authentication
 - `lib/` - Utility functions and core business logic
-- `scripts/` - Database initialization and WebSocket server
-- `middleware.ts` - Security headers and CORS configuration
+  - `firebase.ts`, `firebase-auth-client.ts`, `firebase-database.ts` - Firebase integration
+  - `zipcode-utils.ts`, `validation.ts` - Utility functions
+- `scripts/` - Database initialization and testing utilities
+- `middleware.ts` - Security headers and request handling
 
 ### Key Architectural Patterns
 
-1. **Real-time Communication**: WebSocket connections are managed through custom hooks (`use-websocket.ts`) that handle connection lifecycle, message routing, and cross-tab synchronization.
+1. **Real-time Communication**: Firebase Realtime Database handles all real-time messaging and presence updates through optimized listeners and subscriptions (`use-firebase-chat.ts`).
 
-2. **Anonymous User Persistence**: Device fingerprinting (`lib/device-fingerprint.ts`) creates unique identifiers based on hardware characteristics, stored in localStorage for cross-tab sharing.
+2. **Email Authentication Flow**: Complete email/password authentication with verification:
+   - Separate Sign In/Sign Up components with validation
+   - Email verification required before account access
+   - Post-verification auto-signin with direct onboarding redirect
+   - Session persistence with localStorage and Firebase Auth
 
-3. **Session Management**: AES-256-GCM encrypted sessions (`lib/session-manager.ts`) store user profiles linked to device fingerprints, enabling anonymous persistence without registration.
+3. **Dual Database Architecture**: 
+   - **Firestore**: User profiles, sessions, favorites, structured data
+   - **Realtime Database**: Messages, presence, active chats, real-time updates
 
-4. **Database Operations**: All database queries go through structured modules:
-   - `lib/database.ts` - Core database operations
-   - `lib/session-manager.ts` - Session and profile management
-   - `lib/user-persistence.ts` - User data persistence
+4. **Database Operations**: Firebase integration through structured modules:
+   - `lib/firebase-database.ts` - Dual database operations with legacy compatibility
+   - `lib/firebase-auth-client.ts` - Authentication and session management
+   - `lib/firebase.ts` - Core Firebase configuration and initialization
 
 5. **Security Architecture**: 
-   - Input validation (`lib/validation.ts`)
+   - Firebase Security Rules for both databases
+   - Input validation (`lib/validation.ts`)  
    - Rate limiting (`lib/rate-limiter.ts`)
-   - Session encryption with backward compatibility
-   - Security headers via middleware
+   - Email verification enforcement
+   - CORS and security headers via middleware
 
-6. **Cross-Device Sync**: Users can connect multiple devices to the same session using transfer codes, maintaining conversation history across all devices.
+6. **Profile Management**: 
+   - 2-step onboarding (profile creation + location detection)
+   - Immutable profiles once locked (monetization ready)
+   - Automatic location detection with manual fallback
 
 ## Current Feature Set
 
@@ -89,11 +109,12 @@ SESSION_ENCRYPTION_KEY=64_character_hex_key_for_aes_256_encryption
 - **Responsive Layout**: Mobile-first design with full-screen interface
 - **Modern Onboarding**: Streamlined user setup with button-based selections
 
-### 🔐 **Anonymous Authentication**
-- **Device Fingerprinting**: Hardware-based unique identification
-- **Session Persistence**: Survives browser cache clearing and restarts
-- **Cross-tab Sync**: Shared sessions across browser tabs
-- **No Registration**: Completely anonymous user experience
+### 🔐 **Email Authentication**
+- **Classic Sign Up/Sign In Flow**: Separate authentication screens
+- **Email Verification**: Required verification before account access
+- **Post-Verification Auto-Signin**: Direct redirect to profile onboarding after email verification
+- **Session Persistence**: Firebase Auth with localStorage backup for profiles
+- **Privacy Protection**: Email addresses never shared with other users
 
 ### 👤 **User Profile System**
 - **Profile Creation**: Username, gender, age, location during onboarding
@@ -109,17 +130,19 @@ SESSION_ENCRYPTION_KEY=64_character_hex_key_for_aes_256_encryption
 - **Message Deduplication**: Prevents duplicate messages across tabs
 
 ### 📱 **Real-time Features**
-- **WebSocket Integration**: Real-time message delivery
-- **Multi-connection Support**: Multiple browser tabs/devices per user
-- **Online Status**: Live user presence indicators
-- **Message Synchronization**: Instant cross-tab message sync
+- **Firebase Realtime Database**: Instant message delivery and presence
+- **Optimistic Updates**: Messages appear immediately with fallback handling
+- **Cross-Tab Synchronization**: Real-time sync across multiple browser tabs
+- **Active Chat Subscriptions**: Live updates for private message conversations
+- **Online Status**: Real-time user presence indicators
 
 ### 🛡️ **Security Features**
-- **AES-256-GCM Encryption**: Session data encryption
-- **Rate Limiting**: API protection against abuse
-- **Input Validation**: XSS and injection protection
-- **CORS Configuration**: Secure cross-origin requests
-- **Content Security Policy**: Browser-level security
+- **Firebase Security Rules**: Database-level access control for both Firestore and Realtime Database
+- **Email Verification**: Mandatory email verification before account access
+- **Session Encryption**: AES-256-GCM for sensitive session data
+- **Input Validation**: XSS and injection protection via validation utilities
+- **Rate Limiting**: API protection against abuse and spam
+- **CORS Configuration**: Secure cross-origin request handling
 
 ### 🌍 **Location Features**
 - **Zip Code Rooms**: US zip codes and Canadian postal codes
@@ -129,32 +152,40 @@ SESSION_ENCRYPTION_KEY=64_character_hex_key_for_aes_256_encryption
 
 ## Development Notes
 
-### Database Schema
-- **user_sessions**: Encrypted user profiles with device linking
-- **device_fingerprints**: Device identification and session mapping
-- **session_devices**: Many-to-many relationship for multi-device support
-- **device_transfer_codes**: Secure device linking codes
-- **messages**: Chat messages with room/private routing
-- **private_messages**: Direct message storage
-- **user_favourites**: User relationship management
+### Firebase Database Structure
 
-### WebSocket Implementation
-- **Connection Management**: Per-user connection tracking with unique IDs
-- **Message Broadcasting**: Room-based and private message routing
-- **Heartbeat System**: Connection health monitoring
-- **Error Handling**: Graceful disconnection and reconnection
+#### Firestore Collections
+- **user_sessions**: User profiles linked to Firebase Auth UIDs
+- **user_favorites**: User relationship management and favorite contacts
+- **users**: Basic user data and presence information
+
+#### Realtime Database Structure
+- **messages/{zipcode}**: Public room messages organized by location
+- **private_messages/{conversationId}**: Direct messages between users
+- **active_chats/{userId}**: Real-time active conversation tracking
+- **user_presence/{userId}**: Live online status and activity
+- **active_users/{zipcode}**: Currently active users in each room
+
+### Firebase Integration
+- **Authentication**: Email/password with verification via Firebase Auth
+- **Real-time Messaging**: Firebase Realtime Database with optimistic updates
+- **User Management**: Firestore for structured user data and relationships
+- **Security Rules**: Comprehensive rules for both databases ensuring data privacy
 
 ### Security Considerations
-- **No PII Collection**: Completely anonymous user data
-- **Encrypted Storage**: All sensitive data encrypted at rest
-- **Session Expiration**: Automatic cleanup of old sessions
+- **Email Privacy**: Email addresses stored securely in Firebase Auth, never shared with users
+- **Verified Accounts**: Email verification required before account access
+- **Encrypted Sessions**: AES-256-GCM encryption for sensitive profile data
+- **Firebase Security Rules**: Database-level access control preventing unauthorized access
 - **Rate Limiting**: Protection against spam and abuse
+- **Input Validation**: Comprehensive validation to prevent XSS and injection attacks
 
 ### Performance Optimizations
-- **Message Deduplication**: Client-side duplicate prevention
-- **Connection Pooling**: Efficient WebSocket connection management
-- **Caching Strategy**: localStorage for quick access
-- **Lazy Loading**: Components loaded as needed
+- **Optimistic Updates**: Messages appear immediately with real-time sync
+- **Firebase Connection Management**: Efficient real-time database connections
+- **LocalStorage Caching**: Profile and session data cached for instant access
+- **Component Code Splitting**: Lazy loading for auth and chat components
+- **Real-time Subscriptions**: Efficient listeners for active chats and presence
 
 ### Browser Compatibility
 - **Chrome/Edge**: Full feature support
@@ -166,25 +197,28 @@ SESSION_ENCRYPTION_KEY=64_character_hex_key_for_aes_256_encryption
 
 The application is designed with future monetization in mind:
 
-1. **Profile Locking**: Users cannot change profiles once set
-2. **Username Scarcity**: Limited good usernames create value
-3. **Premium Features**: Edit capabilities reserved for paid users
-4. **Session Persistence**: Valuable user retention mechanism
+1. **Profile Locking**: Users cannot change profiles once set (immutable after creation)
+2. **Username Scarcity**: Limited good usernames create value with 37.8M combinations
+3. **Email-Based Accounts**: Verified email accounts enable premium features and billing
+4. **Premium Features**: Profile editing, advanced usernames, priority support
+5. **Account Persistence**: Firebase Auth ensures reliable user retention and billing
 
 ## Testing Strategy
 
-- **Manual Testing**: Cross-browser compatibility testing
-- **Real-time Testing**: Multi-tab and multi-device scenarios
-- **Security Testing**: Input validation and rate limiting
-- **Performance Testing**: WebSocket connection limits
+- **Manual Testing**: Cross-browser compatibility and responsive design
+- **Authentication Flow Testing**: Email verification and sign-in/sign-up flows
+- **Real-time Testing**: Multi-tab sync and Firebase connection handling
+- **Security Testing**: Input validation, rate limiting, and Firebase rules
+- **Performance Testing**: Firebase connection limits and message throughput
 
 ## Deployment Considerations
 
-- **Environment Variables**: Secure key management
-- **Database Scaling**: Neon serverless scaling
-- **WebSocket Scaling**: Potential clustering needs
-- **CDN Integration**: Static asset delivery
-- **Domain Configuration**: lokals.chat deployment ready
+- **Environment Variables**: Firebase configuration keys and legacy encryption keys
+- **Firebase Project**: Firestore, Realtime Database, and Authentication enabled
+- **Security Rules**: Deployed for both Firestore and Realtime Database
+- **Email Verification**: Firebase email templates configured
+- **CDN Integration**: Static asset delivery via Vercel/Netlify
+- **Domain Configuration**: lokals.chat deployment ready with Firebase Auth domain
 
 ## Code Quality
 
