@@ -136,14 +136,14 @@ async function initializeFirebaseStructure(env: 'development' | 'staging') {
     console.log(`🎉 Firebase ${env} structure initialized successfully!`)
     return true
     
-  } catch (error) {
+  } catch (error: any) {
     console.error(`❌ Error initializing Firebase ${env} structure:`, error)
     
     // More specific error handling
-    if (error.code === 'app/insufficient-permissions') {
+    if (error?.code === 'app/insufficient-permissions') {
       console.error(`\n💡 Solution: Make sure you have admin permissions for ${projects[env].projectId}`)
       console.error(`   Run: firebase login (and use an account with admin access)`)
-    } else if (error.code === 'app/invalid-credential') {
+    } else if (error?.code === 'app/invalid-credential') {
       console.error(`\n💡 Solution: Check your Firebase credentials`)
       console.error(`   Make sure you're logged in: firebase login`)
     }
