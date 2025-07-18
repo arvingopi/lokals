@@ -60,8 +60,10 @@ export function SignIn({ onAuthSuccess, onBackClick, onSignUpClick }: SignInProp
           errorMessage = "Please enter a valid email address."
         } else if (firebaseError.code === 'auth/user-not-found') {
           errorMessage = "No account found with this email. Please sign up first."
-        } else if (firebaseError.code === 'auth/wrong-password' || firebaseError.code === 'auth/invalid-credential') {
+        } else if (firebaseError.code === 'auth/wrong-password') {
           errorMessage = "Incorrect password. Please try again."
+        } else if (firebaseError.code === 'auth/invalid-credential') {
+          errorMessage = "Invalid email or password. If you're new, please create an account first."
         } else if (firebaseError.code === 'auth/too-many-requests') {
           errorMessage = "Too many failed attempts. Please try again later."
         } else if (firebaseError.message) {
