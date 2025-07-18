@@ -1,0 +1,68 @@
+{
+  "rules": {
+    ".read": true,
+    ".write": true,
+    "messages": {
+      "$zipcode": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "$messageId": {
+          ".validate": "newData.hasChildren(['content', 'timestamp', 'userId', 'username'])"
+        }
+      }
+    },
+    "private_messages": {
+      "$conversationId": {
+        ".read": "auth != null && ($conversationId.contains(auth.uid))",
+        ".write": "auth != null && ($conversationId.contains(auth.uid))",
+        "$messageId": {
+          ".validate": "newData.hasChildren(['content', 'timestamp', 'senderId', 'recipientId'])"
+        }
+      }
+    },
+    "user_presence": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "active_users": {
+      "$zipcode": {
+        ".read": "auth != null",
+        "$userId": {
+          ".write": "auth != null"
+        }
+      }
+    },
+    "typing_indicators": {
+      "$zipcode": {
+        ".read": "auth != null",
+        "$userId": {
+          ".write": "auth != null"
+        }
+      }
+    },
+    "test": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "user_sessions": {
+      "$sessionId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "device_sessions": {
+      "$deviceId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "user_favorites": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}
