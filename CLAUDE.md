@@ -19,14 +19,62 @@ npx tsx scripts/init-db.ts
 # Start development server with Turbopack
 npm run dev
 
-# Build for production
+# Start development server with real-time linting (recommended for large features)
+npm run dev:lint
+
+# Build for production (includes linting and type checking)
 npm run build
 
-# Run linting
-npm run lint
+# Linting commands
+npm run lint              # Run linting once
+npm run lint:watch        # Run linting in watch mode
+npm run lint:fix          # Run linting and auto-fix issues
 
-# Run type checking
-npm run typecheck
+# Type checking commands  
+npm run typecheck         # Run type checking once
+npm run typecheck:watch   # Run type checking in watch mode
+
+# Run both linting and type checking
+npm run check
+```
+
+### Firebase CLI Commands
+```bash
+# Check Firebase CLI version and login status
+firebase --version
+firebase login:list
+
+# List all Firebase projects
+firebase projects:list
+
+# Create new Firebase projects
+firebase projects:create <project-id> --display-name "Project Name"
+
+# Switch between projects
+firebase use <project-id>
+
+# Initialize services for a project (interactive)
+firebase init database --project <project-id>
+firebase init firestore --project <project-id>
+
+# Create database instances
+firebase database:instances:create <instance-name> --location <region>
+
+# Create Firestore databases
+firebase firestore:databases:create <database-name> --location <region>
+
+# Deploy security rules to projects
+firebase deploy --only firestore:rules,database:rules --project <project-id>
+
+# Get help for specific commands
+firebase <command> --help
+
+# Common workflow for new environment setup:
+# 1. Create project: firebase projects:create lokals-chat-env
+# 2. Enable services via Firebase Console (easier than CLI for initial setup)
+# 3. Configure authentication, Firestore, and Realtime Database
+# 4. Update environment files with correct project IDs and URLs
+# 5. Initialize database structure: npx tsx scripts/init-firebase-admin.ts <environment>
 ```
 
 ### Environment Variables Required
@@ -218,13 +266,234 @@ The application is designed with future monetization in mind:
 - **Security Testing**: Input validation, rate limiting, and Firebase rules
 - **Performance Testing**: Firebase connection limits and message throughput
 
-## Deployment Considerations
+## Multi-Environment Deployment Setup
+
+### Environment Overview
+The application uses a three-tier deployment strategy with separate Firebase projects and Vercel deployments:
+
+- **Production**: `https://lokals.chat` (main branch)
+- **Staging**: `https://lokals.vercel.app` (staging branch)  
+- **Development**: `http://localhost:3000` (develop branch)
+
+### Git Branch Strategy
+```bash
+# Main branches for deployment
+main      # Production environment (lokals.chat)
+staging   # Staging environment (lokals.vercel.app)
+develop   # Development environment (localhost)
+
+# Feature development workflow
+feature/* # Feature branches merge to develop
+hotfix/*  # Hotfix branches for production issues
+```
+
+### Environment Configuration
+
+#### Environment Variables by Environment
+Each environment requires separate Firebase projects and configuration:
+
+```bash
+# .env.production
+NEXT_PUBLIC_ENVIRONMENT=production
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=lokals-chat-prod
+NEXT_PUBLIC_FIREBASE_API_KEY=prod_api_key
+# ... other production Firebase config
+
+# .env.staging
+NEXT_PUBLIC_ENVIRONMENT=staging
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=lokals-chat-staging
+NEXT_PUBLIC_FIREBASE_API_KEY=staging_api_key
+# ... other staging Firebase config
+
+# .env.development
+NEXT_PUBLIC_ENVIRONMENT=development
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=lokals-chat-dev
+NEXT_PUBLIC_FIREBASE_API_KEY=dev_api_key
+# ... other development Firebase config
+```
+
+#### Environment Detection
+The application uses `lib/environment.ts` for environment-specific behavior:
+
+```typescript
+import { getCurrentEnvironment, getEnvironmentConfig } from '@/lib/environment'
+
+// Get current environment
+const env = getCurrentEnvironment() // 'development' | 'staging' | 'production'
+
+// Get environment-specific configuration
+const config = getEnvironmentConfig()
+// Returns: environment, isDevelopment, isStaging, isProduction, firebaseProject, appUrl
+```
+
+### Vercel Deployment Configuration
+
+#### Branch-based Deployments
+`vercel.json` configures automatic deployments:
+
+```json
+{
+  "git": {
+    "deploymentEnabled": {
+      "main": true,      // → lokals.chat (production)
+      "staging": true,   // → lokals.vercel.app (staging)
+      "develop": true    // → preview URL (development)
+    }
+  }
+}
+```
+
+#### GitHub Actions Workflow
+`.github/workflows/deploy.yml` handles automated deployments:
+
+- **Production**: Deploys `main` branch to `lokals.chat`
+- **Staging**: Deploys `staging` branch to `lokals.vercel.app`
+- **Development**: Deploys `develop` branch to preview URL
+- **Pull Requests**: Creates preview deployments with comment links
+
+### Firebase Project Setup
+
+#### Required Firebase Projects
+Create separate Firebase projects for each environment:
+
+1. **lokals-chat-prod** (Production)
+   - Domain: `lokals.chat`
+   - Firestore + Realtime Database
+   - Authentication with production email templates
+
+2. **lokals-chat-staging** (Staging)
+   - Domain: `lokals.vercel.app`
+   - Firestore + Realtime Database
+   - Authentication with staging email templates
+
+3. **lokals-chat-dev** (Development)
+   - Domain: `localhost:3000`
+   - Firestore + Realtime Database
+   - Authentication with development email templates
+
+#### Firebase Security Rules
+Deploy security rules to each Firebase project:
+
+```bash
+# Deploy to all environments
+firebase deploy --only firestore:rules,database:rules --project lokals-chat-prod
+firebase deploy --only firestore:rules,database:rules --project lokals-chat-staging
+firebase deploy --only firestore:rules,database:rules --project lokals-chat-dev
+```
+
+#### Database Structure Initialization
+Use the Firebase Admin script to initialize database structure for new environments:
+
+```bash
+# Initialize development environment database
+npx tsx scripts/init-firebase-admin.ts development
+
+# Initialize staging environment database  
+npx tsx scripts/init-firebase-admin.ts staging
+
+# Initialize both environments at once
+npx tsx scripts/init-firebase-admin.ts both
+```
+
+**Prerequisites:**
+- Service account keys placed in project root:
+  - `firebase-dev-key.json` (for development environment)
+  - `firebase-staging-key.json` (for staging environment)
+- Firebase projects with Firestore and Realtime Database enabled
+- Authentication configured in Firebase Console
+
+**What Gets Initialized:**
+
+*Firestore Collections:*
+- `user_sessions/` - User profiles linked to Firebase Auth UIDs with encrypted profile data
+- `user_favorites/` - User favorite contacts and relationship management
+- `users/` - Basic user data and presence information (legacy compatibility)
+
+*Realtime Database Structure:*
+- `messages/{zipcode}/` - Public room messages organized by location (US zip codes, Canadian postal codes)
+- `private_messages/{conversationId}/` - Direct messages between users (conversationId = sorted user IDs)
+- `active_chats/{userId}/` - Real-time active conversation tracking with last message previews
+- `user_presence/{userId}/` - Live user online status and current room location
+- `active_users/{zipcode}/` - Currently active users in each zipcode room
+
+**Script Features:**
+- Creates placeholder documents to initialize Firestore collections
+- Sets up complete Realtime Database structure with documentation
+- Includes field definitions and path patterns for reference
+- Environment-specific initialization with proper project targeting
+- Comprehensive error handling and troubleshooting guidance
+
+### Deployment Workflow
+
+#### Development to Production Flow
+1. **Feature Development**: Work on `feature/*` branches
+2. **Development Testing**: Merge to `develop` branch → auto-deploy to preview URL
+3. **Staging Review**: Merge to `staging` branch → auto-deploy to `lokals.vercel.app`
+4. **Production Release**: Merge to `main` branch → auto-deploy to `lokals.chat`
+
+#### GitHub Secrets Configuration
+Required secrets for GitHub Actions:
+
+```bash
+VERCEL_ORG_ID          # Vercel organization ID
+VERCEL_PROJECT_ID      # Vercel project ID
+VERCEL_TOKEN          # Vercel authentication token
+```
+
+### Environment-Specific Features
+
+#### Development Environment
+- Environment badge displayed in UI
+- Relaxed security settings for testing
+- Local Firebase emulators (optional)
+- Hot reload and development tools
+
+#### Staging Environment
+- Environment badge displayed in UI
+- Production-like configuration
+- Real Firebase projects for integration testing
+- Performance monitoring enabled
+
+#### Production Environment
+- No environment badge
+- Strict security settings
+- Production Firebase projects
+- Full monitoring and analytics
+- Custom domain with SSL
+
+### Database Migration Strategy
+
+#### Cross-Environment Data Flow
+- **Development**: Test data and development features
+- **Staging**: Production-like data for user acceptance testing
+- **Production**: Live user data with backup and disaster recovery
+
+#### Environment Isolation
+Each environment maintains separate:
+- User accounts and authentication
+- Chat messages and user data
+- File uploads and media storage
+- Configuration and feature flags
+
+### Monitoring and Maintenance
+
+#### Environment-Specific Monitoring
+- **Production**: Full error tracking, performance monitoring, user analytics
+- **Staging**: Error tracking for testing validation
+- **Development**: Basic logging for debugging
+
+#### Backup Strategy
+- **Production**: Daily automated backups with point-in-time recovery
+- **Staging**: Weekly backups for testing data preservation
+- **Development**: No backups required (test data only)
+
+## Legacy Deployment Considerations
 
 - **Environment Variables**: Firebase configuration keys and legacy encryption keys
 - **Firebase Project**: Firestore, Realtime Database, and Authentication enabled
 - **Security Rules**: Deployed for both Firestore and Realtime Database
 - **Email Verification**: Firebase email templates configured
-- **CDN Integration**: Static asset delivery via Vercel/Netlify
+- **CDN Integration**: Static asset delivery via Vercel
 - **Domain Configuration**: lokals.chat deployment ready with Firebase Auth domain
 
 ## Code Quality

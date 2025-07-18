@@ -4,9 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "dev:lint": "concurrently \"npm run dev\" \"npm run lint:watch\"",
+    "build": "npm run lint && npm run typecheck && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "lint:watch": "next lint --watch",
+    "lint:fix": "next lint --fix",
+    "typecheck": "tsc --noEmit",
+    "typecheck:watch": "tsc --noEmit --watch",
+    "check": "npm run lint && npm run typecheck"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.1",
@@ -33,6 +39,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/ws": "^8.18.1",
+    "concurrently": "^9.2.0",
     "eslint": "^9",
     "eslint-config-next": "15.2.4",
     "tailwindcss": "^4",
