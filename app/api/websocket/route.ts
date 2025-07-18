@@ -1,6 +1,5 @@
 import type { NextRequest } from "next/server"
 import { getWebSocketServer } from "@/lib/websocket-server"
-import { initializeDatabase } from "@/lib/database"
 
 // Initialize on first API call
 let initialized = false
@@ -8,7 +7,7 @@ let initialized = false
 async function initialize() {
   if (!initialized) {
     console.log("🚀 Initializing chat system...")
-    await initializeDatabase()
+    // Firebase doesn't need database initialization
     getWebSocketServer()
     initialized = true
     console.log("✅ Chat system ready!")

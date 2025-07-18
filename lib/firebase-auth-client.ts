@@ -246,7 +246,7 @@ class FirebaseAuthClient {
       // Send verification email
       await sendEmailVerification(firebaseUser, {
         url: `${window.location.origin}/auth/verify?email=${encodeURIComponent(email)}`,
-        handleCodeInApp: true
+        handleCodeInApp: false
       })
       
       // Sign out immediately so user must verify email first
@@ -301,10 +301,7 @@ class FirebaseAuthClient {
           email: email,
           username: generateUsername(),
           createdAt: new Date().toISOString(),
-          isLocked: false,
-          zipcode: undefined,
-          gender: undefined,
-          age: undefined
+          isLocked: false
         }
         
         const session = await this.createSession(profile, firebaseUser.uid)

@@ -49,6 +49,8 @@ export interface User {
   zipcode: string
   is_online: boolean
   session_id?: string
+  gender?: string
+  age?: string
 }
 
 export interface FavouriteUser {
@@ -217,9 +219,11 @@ export async function savePrivateMessage(
   })
   
   // Add notification for recipient to ensure they know about new conversation
-  await set(ref(database, `notifications/${recipientId}/new_message`), {
+  await set(ref(database, `notifications/${recipientId}/unread_messages/${senderId}`), {
     from: senderId,
+    fromUsername: username,
     timestamp,
+    lastMessage: content,
     conversationId: [senderId, recipientId].sort().join('_')
   })
   
@@ -227,7 +231,7 @@ export async function savePrivateMessage(
 }
 
 // Firestore operations for user data
-export async function upsertUser(userId: string, username: string, zipcode: string, sessionId?: string): Promise<User> {
+export async function upsertUser(userId: string, username: string, zipcode: string, sessionId?: string, gender?: string, age?: string): Promise<User> {
   const userRef = doc(firestore, 'users', userId)
   const now = Timestamp.now()
   
@@ -238,6 +242,8 @@ export async function upsertUser(userId: string, username: string, zipcode: stri
     last_seen: now,
     is_online: true,
     session_id: sessionId || null,
+    gender: gender || null,
+    age: age || null,
     created_at: now
   }
   
@@ -254,6 +260,8 @@ export async function upsertUser(userId: string, username: string, zipcode: stri
   // Update active users list
   await set(ref(database, `active_users/${zipcode}/${userId}`), {
     username,
+    gender: gender || null,
+    age: age || null,
     joinedAt: Date.now(),
     lastActivity: Date.now()
   })
@@ -264,7 +272,9 @@ export async function upsertUser(userId: string, username: string, zipcode: stri
     zipcode,
     last_seen: now.toDate(),
     is_online: true,
-    session_id: sessionId
+    session_id: sessionId,
+    gender,
+    age
   }
 }
 
@@ -316,7 +326,9 @@ export async function getActiveUsers(zipcode: string): Promise<User[]> {
           last_seen: new Date(data.lastActivity),
           zipcode,
           is_online: true,
-          session_id: null
+          session_id: null,
+          gender: data.gender || undefined,
+          age: data.age || undefined
         })
       }
     }
@@ -543,7 +555,9 @@ export function subscribeToActiveUsers(zipcode: string, callback: (users: User[]
             last_seen: new Date(data.lastActivity),
             zipcode,
             is_online: true,
-            session_id: null
+            session_id: null,
+            gender: data.gender || undefined,
+            age: data.age || undefined
           })
         }
       }
@@ -600,6 +614,25 @@ export function subscribeToActiveChats(userId: string, callback: (chats: ActiveC
   })
   
   return () => off(activeChatsRef, 'value', unsubscribe)
+}
+
+export function subscribeToNotifications(userId: string, callback: (notifications: any) => void): () => void {
+  const notificationsRef = ref(database, `notifications/${userId}`)
+  
+  const unsubscribe = onValue(notificationsRef, (snapshot) => {
+    const notifications = snapshot.val() || {}
+    callback(notifications)
+  })
+  
+  return () => off(notificationsRef, 'value', unsubscribe)
+}
+
+export async function markNotificationAsRead(userId: string, notificationType: string = 'new_message'): Promise<void> {
+  await remove(ref(database, `notifications/${userId}/${notificationType}`))
+}
+
+export async function markMessagesAsRead(userId: string, fromUserId: string): Promise<void> {
+  await remove(ref(database, `notifications/${userId}/unread_messages/${fromUserId}`))
 }
 
 // Legacy compatibility functions

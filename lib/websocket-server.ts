@@ -9,7 +9,7 @@ import {
   getActiveUsers,
   getPrivateMessages,
   savePrivateMessage,
-} from "./database"
+} from "./firebase-database"
 
 interface WebSocketClient extends WebSocket {
   connectionId?: string

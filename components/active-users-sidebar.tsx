@@ -6,8 +6,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Users, MessageCircle, Hash, Heart, HeartOff, Star, ChevronDown, ChevronRight, MapPin, Clock } from "lucide-react"
 import type { User } from "@/lib/chat-utils"
-import type { FavouriteUser, ActiveChatUser } from "@/lib/database"
-import { subscribeToActiveChats } from "@/lib/firebase-database"
+import type { FavouriteUser, ActiveChatUser } from "@/lib/firebase-database"
+import { subscribeToActiveChats, subscribeToNotifications, markMessagesAsRead } from "@/lib/firebase-database"
 import { useState, useEffect } from "react"
 
 interface ActiveUsersSidebarProps {
@@ -17,6 +17,7 @@ interface ActiveUsersSidebarProps {
   selectedUserId: string | null
   onUserSelect: (userId: string | null) => void
   onUserClick: (user: User) => void
+  refreshTrigger?: number
 }
 
 // Helper function to get gender emoji
@@ -37,11 +38,13 @@ export function ActiveUsersSidebar({
   selectedUserId,
   onUserSelect,
   onUserClick,
+  refreshTrigger,
 }: ActiveUsersSidebarProps) {
   const [favouriteUsers, setFavouriteUsers] = useState<FavouriteUser[]>([])
   const [favouriteUserIds, setFavouriteUserIds] = useState<Set<string>>(new Set())
   const [activeChats, setActiveChats] = useState<ActiveChatUser[]>([])
   const [isRoomExpanded, setIsRoomExpanded] = useState(true)
+  const [unreadMessages, setUnreadMessages] = useState<{[userId: string]: any}>({})
   
   const otherUsers = users.filter((user) => user.id !== currentUserId)
   
@@ -57,11 +60,24 @@ export function ActiveUsersSidebar({
     const unsubscribeActiveChats = subscribeToActiveChats(currentUserId, (chats) => {
       setActiveChats(chats)
     })
+
+    // Subscribe to notifications for unread messages
+    const unsubscribeNotifications = subscribeToNotifications(currentUserId, (notifications) => {
+      setUnreadMessages(notifications.unread_messages || {})
+    })
     
     return () => {
       unsubscribeActiveChats()
+      unsubscribeNotifications()
     }
   }, [currentUserId])
+
+  // Refresh favorites when refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger) {
+      fetchFavouriteUsers()
+    }
+  }, [refreshTrigger])
 
   const fetchFavouriteUsers = async () => {
     try {
@@ -115,14 +131,19 @@ export function ActiveUsersSidebar({
   }
 
   // Helper function to convert ActiveChatUser to User for compatibility
-  const createUserFromActiveChat = (activeChat: ActiveChatUser): User => ({
-    id: activeChat.user_id,
-    username: activeChat.username,
-    last_seen: activeChat.last_message_time,
-    zipcode: currentZipcode,
-    is_online: users.some(u => u.id === activeChat.user_id), // Check if user is currently online
-    session_id: undefined
-  })
+  const createUserFromActiveChat = (activeChat: ActiveChatUser): User => {
+    const onlineUser = users.find(u => u.id === activeChat.user_id)
+    return {
+      id: activeChat.user_id,
+      username: activeChat.username,
+      last_seen: activeChat.last_message_time,
+      zipcode: currentZipcode,
+      is_online: !!onlineUser, // Check if user is currently online
+      session_id: undefined,
+      gender: onlineUser?.gender,
+      age: onlineUser?.age
+    }
+  }
 
   // Real-time active chats are now handled via subscription, no manual refresh needed
 
@@ -199,6 +220,8 @@ export function ActiveUsersSidebar({
                         onClick={() => onUserClick(user)}
                         isFavourite={favouriteUserIds.has(user.id)}
                         onToggleFavourite={() => toggleFavourite(user)}
+                        hasUnreadMessages={!!unreadMessages[user.id]}
+                        currentUserId={currentUserId}
                       />
                     ))
                   )}
@@ -241,6 +264,8 @@ export function ActiveUsersSidebar({
                         onClick={() => onUserClick(user)}
                         isFavourite={favouriteUserIds.has(activeChat.user_id)}
                         onToggleFavourite={() => toggleFavourite(user)}
+                        hasUnreadMessages={!!unreadMessages[activeChat.user_id]}
+                        currentUserId={currentUserId}
                       />
                     )
                   })
@@ -280,6 +305,8 @@ export function ActiveUsersSidebar({
                       onClick={() => onUserClick(user)}
                       isFavourite={true}
                       onToggleFavourite={() => toggleFavourite(user)}
+                      hasUnreadMessages={!!unreadMessages[user.id]}
+                      currentUserId={currentUserId}
                     />
                   ))
                 )}
@@ -298,15 +325,24 @@ interface UserItemProps {
   onClick: () => void
   isFavourite?: boolean
   onToggleFavourite?: () => void
+  hasUnreadMessages?: boolean
+  currentUserId?: string
 }
 
-function UserItem({ user, isSelected, onClick, isFavourite = false, onToggleFavourite }: UserItemProps) {
+function UserItem({ user, isSelected, onClick, isFavourite = false, onToggleFavourite, hasUnreadMessages = false, currentUserId }: UserItemProps) {
+  const handleClick = async () => {
+    // Mark messages as read when user is clicked
+    if (hasUnreadMessages && currentUserId) {
+      await markMessagesAsRead(currentUserId, user.id)
+    }
+    onClick()
+  }
   return (
     <div className="flex items-center gap-1">
       <Button 
         variant={isSelected ? "default" : "ghost"} 
         size="sm" 
-        onClick={onClick} 
+        onClick={handleClick} 
         className={`flex-1 justify-start rounded-xl ${
           isSelected 
             ? "bg-gradient-to-r from-emerald-500 to-blue-500 text-white shadow-lg" 
@@ -315,8 +351,8 @@ function UserItem({ user, isSelected, onClick, isFavourite = false, onToggleFavo
       >
         <div className="flex items-center gap-3 w-full">
           <div className="w-2 h-2 bg-emerald-400 rounded-full flex-shrink-0 animate-pulse"></div>
-          <span className="text-base mr-1">👤</span>
-          <span className="truncate flex-1 text-left font-medium">{user.username}</span>
+          <span className="text-base mr-1">{getGenderEmoji(user.gender)}</span>
+          <span className={`truncate flex-1 text-left ${hasUnreadMessages ? 'font-bold text-white' : 'font-medium'}`}>{user.username}</span>
           <MessageCircle className="h-3 w-3 flex-shrink-0 opacity-60" />
         </div>
       </Button>
@@ -348,9 +384,19 @@ interface ActiveChatItemProps {
   onClick: () => void
   isFavourite?: boolean
   onToggleFavourite?: () => void
+  hasUnreadMessages?: boolean
+  currentUserId?: string
 }
 
-function ActiveChatItem({ activeChat, user, isSelected, onClick, isFavourite = false, onToggleFavourite }: ActiveChatItemProps) {
+function ActiveChatItem({ activeChat, user, isSelected, onClick, isFavourite = false, onToggleFavourite, hasUnreadMessages = false, currentUserId }: ActiveChatItemProps) {
+  const handleClick = async () => {
+    // Mark messages as read when active chat is clicked
+    if (hasUnreadMessages && currentUserId) {
+      await markMessagesAsRead(currentUserId, activeChat.user_id)
+    }
+    onClick()
+  }
+
   const formatTime = (date: Date) => {
     const now = new Date()
     const diffMs = now.getTime() - new Date(date).getTime()
@@ -375,7 +421,7 @@ function ActiveChatItem({ activeChat, user, isSelected, onClick, isFavourite = f
       <Button 
         variant={isSelected ? "default" : "ghost"} 
         size="sm" 
-        onClick={onClick} 
+        onClick={handleClick} 
         className={`flex-1 justify-start p-2 h-auto rounded-xl ${
           isSelected 
             ? "bg-gradient-to-r from-emerald-500 to-blue-500 text-white shadow-lg" 
@@ -385,8 +431,8 @@ function ActiveChatItem({ activeChat, user, isSelected, onClick, isFavourite = f
         <div className="flex flex-col gap-1 w-full min-w-0">
           <div className="flex items-center gap-2 w-full">
             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${user.is_online ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`}></div>
-            <span className="text-sm mr-1">👤</span>
-            <span className="truncate flex-1 text-left font-medium text-sm">{activeChat.username}</span>
+            <span className="text-sm mr-1">{getGenderEmoji(user.gender)}</span>
+            <span className={`truncate flex-1 text-left text-sm ${hasUnreadMessages ? 'font-bold text-white' : 'font-medium'}`}>{activeChat.username}</span>
             <span className="text-xs text-white/60 flex-shrink-0">{formatTime(activeChat.last_message_time)}</span>
           </div>
           <div className="text-xs text-white/60 text-left truncate w-full pl-4">

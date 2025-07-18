@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import type { Message, User } from "@/lib/database"
+import type { Message, User } from "@/lib/firebase-database"
 import { loadUser } from "@/lib/user-persistence"
 
 interface WebSocketMessage {

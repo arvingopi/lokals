@@ -60,7 +60,7 @@ export function useFirebaseChat(userId: string, username: string, zipcode: strin
       }
 
       // Upsert user in database with the authenticated profile
-      await upsertUser(userId, username, zipcode, currentProfile.userId)
+      await upsertUser(userId, username, zipcode, currentProfile.userId, currentProfile.gender, currentProfile.age)
       
       setIsConnected(true)
       isInitialized.current = true

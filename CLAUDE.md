@@ -40,9 +40,16 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 
+# Firebase Admin SDK (for production)
+FIREBASE_SERVICE_ACCOUNT_KEY='{"type":"service_account","project_id":"your_project_id",...}'
+
 # Legacy (for migration scripts)
 SESSION_ENCRYPTION_KEY=64_character_hex_key_for_aes_256_encryption
 ```
+
+### Firebase Admin SDK Setup
+- **Local Development**: Place `firebase-admin-key.json` in project root (already gitignored)
+- **Production**: Set `FIREBASE_SERVICE_ACCOUNT_KEY` environment variable with full service account JSON as string
 
 ## Architecture Overview
 

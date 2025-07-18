@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import type { Message } from "@/lib/database"
+import type { Message } from "@/lib/firebase-database"
 
 export function usePrivateWebSocket(userId: string, recipientId: string | null, username: string) {
   const [messages, setMessages] = useState<Message[]>([])

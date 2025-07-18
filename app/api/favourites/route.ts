@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { addFavouriteUser, removeFavouriteUser, getFavouriteUsers, isFavouriteUser } from "@/lib/firebase-database"
+import { addFavouriteUser, removeFavouriteUser, getFavouriteUsers, isFavouriteUser } from "@/lib/firebase-database-admin"
 import { apiRateLimit } from "@/lib/rate-limiter"
 import { validateUserId, validateUsername, ValidationException } from "@/lib/validation"
 

@@ -18,9 +18,13 @@ export default function EmailVerificationPage() {
     const verifyEmail = async () => {
       try {
         const actionCode = searchParams.get('oobCode')
+        const mode = searchParams.get('mode')
+        const apiKey = searchParams.get('apiKey')
+        
+        console.log('Verification URL parameters:', { actionCode, mode, apiKey })
         
         if (!actionCode) {
-          setError('Invalid verification link.')
+          setError('Invalid verification link. Missing action code.')
           setStatus('error')
           return
         }

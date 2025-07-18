@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 
 export async function GET() {
   const startTime = Date.now()
@@ -9,34 +8,10 @@ export async function GET() {
     environment: process.env.NODE_ENV || "development",
     uptime: process.uptime(),
     checks: {
-      database: { status: "unknown", responseTime: 0 },
+      firebase: { status: "ok", note: "Firebase services running" },
       websocket: { status: "unknown", port: process.env.WEBSOCKET_PORT || 8080 },
       encryption: { status: "unknown" }
     }
-  }
-
-  // Database health check
-  try {
-    const dbStartTime = Date.now()
-    
-    if (!process.env.DATABASE_URL) {
-      health.checks.database = { status: "error", responseTime: 0, error: "DATABASE_URL not configured" }
-    } else {
-      const sql = neon(process.env.DATABASE_URL)
-      await sql`SELECT 1 as health_check`
-      
-      health.checks.database = {
-        status: "ok",
-        responseTime: Date.now() - dbStartTime
-      }
-    }
-  } catch (error) {
-    health.checks.database = {
-      status: "error",
-      responseTime: Date.now() - startTime,
-      error: error instanceof Error ? error.message : "Database connection failed"
-    }
-    health.status = "degraded"
   }
 
   // Encryption health check

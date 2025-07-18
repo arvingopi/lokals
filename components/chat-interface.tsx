@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-import { Send, MapPin, ArrowLeft, Wifi, WifiOff } from "lucide-react"
+import { Send, MapPin, ArrowLeft, Wifi, WifiOff, Heart, HeartOff } from "lucide-react"
 import { useFirebaseChat } from "@/hooks/use-firebase-chat"
 import type { Message, User } from "@/lib/firebase-database"
 import { formatTime } from "@/lib/chat-utils"
@@ -31,6 +31,8 @@ export function ChatInterface({ zipcode, username, userId }: ChatInterfaceProps)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const [profileModalUser, setProfileModalUser] = useState<User | null>(null)
   const [currentUserProfile, setCurrentUserProfile] = useState<any>(null)
+  const [favouriteUserIds, setFavouriteUserIds] = useState<Set<string>>(new Set())
+  const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0)
 
   const {
     messages: roomMessages,
@@ -111,11 +113,69 @@ export function ChatInterface({ zipcode, username, userId }: ChatInterfaceProps)
       id: userId,
       username: username,
       zipcode: zipcode,
-      last_seen: new Date().toISOString(),
+      last_seen: new Date(),
       is_online: true,
       session_id: undefined
     }
     handleOpenProfile(currentUser)
+  }
+
+  // Fetch favorites on component mount
+  useEffect(() => {
+    const fetchFavourites = async () => {
+      try {
+        const response = await fetch(`/api/favourites?userId=${userId}`)
+        if (response.ok) {
+          const data = await response.json()
+          const favoriteIds = new Set(data.favourites.map((fav: any) => fav.favourite_user_id))
+          setFavouriteUserIds(favoriteIds)
+        }
+      } catch (error) {
+        console.error("Error fetching favourites:", error)
+      }
+    }
+    
+    if (userId) {
+      fetchFavourites()
+    }
+  }, [userId])
+
+  const toggleFavourite = async (user: User) => {
+    const isFavourite = favouriteUserIds.has(user.id)
+    
+    try {
+      if (isFavourite) {
+        // Remove from favourites
+        const response = await fetch(`/api/favourites?userId=${userId}&favouriteUserId=${user.id}`, {
+          method: "DELETE"
+        })
+        if (response.ok) {
+          setFavouriteUserIds(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(user.id)
+            return newSet
+          })
+          setSidebarRefreshTrigger(prev => prev + 1) // Trigger sidebar refresh
+        }
+      } else {
+        // Add to favourites
+        const response = await fetch(`/api/favourites`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: userId,
+            favouriteUserId: user.id,
+            favouriteUsername: user.username
+          })
+        })
+        if (response.ok) {
+          setFavouriteUserIds(prev => new Set(prev).add(user.id))
+          setSidebarRefreshTrigger(prev => prev + 1) // Trigger sidebar refresh
+        }
+      }
+    } catch (error) {
+      console.error("Error toggling favourite:", error)
+    }
   }
 
   return (
@@ -131,6 +191,7 @@ export function ChatInterface({ zipcode, username, userId }: ChatInterfaceProps)
           selectedUserId={selectedUserId}
           onUserSelect={setSelectedUserId}
           onUserClick={handleUserClick}
+          refreshTrigger={sidebarRefreshTrigger}
         />
       </div>
 
@@ -153,7 +214,33 @@ export function ChatInterface({ zipcode, username, userId }: ChatInterfaceProps)
                   >
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
-                  <span className="text-lg">💬 {selectedUser?.username}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">💬 {selectedUser?.username}</span>
+                    {selectedUser?.age && (
+                      <span className="text-sm text-white/70 bg-white/10 px-2 py-1 rounded-lg">
+                        {selectedUser.age}
+                      </span>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        if (selectedUser) {
+                          toggleFavourite(selectedUser)
+                        }
+                      }}
+                      className="text-white hover:bg-white/20 rounded-xl"
+                      title={favouriteUserIds.has(selectedUser?.id || '') ? "Remove from favorites" : "Add to favorites"}
+                    >
+                      {favouriteUserIds.has(selectedUser?.id || '') ? (
+                        <Heart className="h-4 w-4 text-red-400 fill-current" />
+                      ) : (
+                        <HeartOff className="h-4 w-4 text-white/60" />
+                      )}
+                    </Button>
+                  </div>
                 </>
               ) : (
                 <>
