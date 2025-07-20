@@ -66,7 +66,7 @@ export async function saveMessage(
   if (isPrivate && recipientId) {
     // Private message - store in private_messages/{conversationId}/{messageId}
     const conversationId = [userId, recipientId].sort().join('_')
-    messageRef = adminDatabase.ref(`private_messages/${conversationId}`).push()
+    messageRef = adminDatabase().ref(`private_messages/${conversationId}`).push()
     messageId = messageRef.key!
     
     await messageRef.set({
@@ -78,7 +78,7 @@ export async function saveMessage(
     })
   } else {
     // Public message - store in messages/{zipcode}/{messageId}
-    messageRef = adminDatabase.ref(`messages/${zipcode}`).push()
+    messageRef = adminDatabase().ref(`messages/${zipcode}`).push()
     messageId = messageRef.key!
     
     await messageRef.set({
@@ -102,7 +102,7 @@ export async function saveMessage(
 }
 
 export async function getRoomMessages(zipcode: string, limitCount = 50): Promise<Message[]> {
-  const messagesRef = adminDatabase.ref(`messages/${zipcode}`)
+  const messagesRef = adminDatabase().ref(`messages/${zipcode}`)
   const messagesQuery = messagesRef.orderByChild('timestamp').limitToLast(limitCount)
   
   const snapshot = await messagesQuery.once('value')
@@ -127,7 +127,7 @@ export async function getRoomMessages(zipcode: string, limitCount = 50): Promise
 
 export async function getPrivateMessages(userId1: string, userId2: string, limitCount = 50): Promise<Message[]> {
   const conversationId = [userId1, userId2].sort().join('_')
-  const messagesRef = adminDatabase.ref(`private_messages/${conversationId}`)
+  const messagesRef = adminDatabase().ref(`private_messages/${conversationId}`)
   const messagesQuery = messagesRef.orderByChild('timestamp').limitToLast(limitCount)
   
   const snapshot = await messagesQuery.once('value')
@@ -163,7 +163,7 @@ export async function savePrivateMessage(
 
 // Firebase Admin Firestore operations for user data
 export async function upsertUser(userId: string, username: string, zipcode: string, sessionId?: string): Promise<User> {
-  const userRef = adminFirestore.collection('users').doc(userId)
+  const userRef = adminFirestore().collection('users').doc(userId)
   const now = new Date()
   
   const userData = {
@@ -179,7 +179,7 @@ export async function upsertUser(userId: string, username: string, zipcode: stri
   await userRef.set(userData, { merge: true })
   
   // Also update presence in Realtime Database
-  await adminDatabase.ref(`user_presence/${userId}`).set({
+  await adminDatabase().ref(`user_presence/${userId}`).set({
     isOnline: true,
     lastSeen: Date.now(),
     zipcode,
@@ -187,7 +187,7 @@ export async function upsertUser(userId: string, username: string, zipcode: stri
   })
   
   // Update active users list
-  await adminDatabase.ref(`active_users/${zipcode}/${userId}`).set({
+  await adminDatabase().ref(`active_users/${zipcode}/${userId}`).set({
     username,
     joinedAt: Date.now(),
     lastActivity: Date.now()
@@ -205,14 +205,14 @@ export async function upsertUser(userId: string, username: string, zipcode: stri
 
 export async function updateUserPresence(userId: string): Promise<void> {
   // Update Firestore
-  const userRef = adminFirestore.collection('users').doc(userId)
+  const userRef = adminFirestore().collection('users').doc(userId)
   await userRef.update({
     last_seen: new Date(),
     is_online: true
   })
   
   // Update Realtime Database
-  await adminDatabase.ref(`user_presence/${userId}`).update({
+  await adminDatabase().ref(`user_presence/${userId}`).update({
     isOnline: true,
     lastSeen: Date.now()
   })
@@ -220,21 +220,21 @@ export async function updateUserPresence(userId: string): Promise<void> {
 
 export async function setUserOffline(userId: string): Promise<void> {
   // Update Firestore
-  const userRef = adminFirestore.collection('users').doc(userId)
+  const userRef = adminFirestore().collection('users').doc(userId)
   await userRef.update({
     is_online: false,
     last_seen: new Date()
   })
   
   // Update Realtime Database
-  await adminDatabase.ref(`user_presence/${userId}`).update({
+  await adminDatabase().ref(`user_presence/${userId}`).update({
     isOnline: false,
     lastSeen: Date.now()
   })
 }
 
 export async function getActiveUsers(zipcode: string): Promise<User[]> {
-  const usersRef = adminDatabase.ref(`active_users/${zipcode}`)
+  const usersRef = adminDatabase().ref(`active_users/${zipcode}`)
   const snapshot = await usersRef.once('value')
   const users: User[] = []
   
@@ -262,7 +262,7 @@ export async function getActiveUsers(zipcode: string): Promise<User[]> {
 
 // Favourite users operations
 export async function addFavouriteUser(userId: string, favouriteUserId: string, favouriteUsername: string): Promise<FavouriteUser> {
-  const favouriteRef = adminFirestore.collection('user_favorites').doc()
+  const favouriteRef = adminFirestore().collection('user_favorites').doc()
   const now = new Date()
   
   const favouriteData = {
@@ -284,13 +284,13 @@ export async function addFavouriteUser(userId: string, favouriteUserId: string, 
 }
 
 export async function removeFavouriteUser(userId: string, favouriteUserId: string): Promise<void> {
-  const favouritesRef = adminFirestore.collection('user_favorites')
+  const favouritesRef = adminFirestore().collection('user_favorites')
   const querySnapshot = await favouritesRef
     .where('userId', '==', userId)
     .where('favoriteUserId', '==', favouriteUserId)
     .get()
   
-  const batch = adminFirestore.batch()
+  const batch = adminFirestore().batch()
   querySnapshot.forEach((doc) => {
     batch.delete(doc.ref)
   })
@@ -299,7 +299,7 @@ export async function removeFavouriteUser(userId: string, favouriteUserId: strin
 }
 
 export async function getFavouriteUsers(userId: string): Promise<FavouriteUser[]> {
-  const favouritesRef = adminFirestore.collection('user_favorites')
+  const favouritesRef = adminFirestore().collection('user_favorites')
   const querySnapshot = await favouritesRef
     .where('userId', '==', userId)
     .orderBy('createdAt', 'desc')
@@ -322,7 +322,7 @@ export async function getFavouriteUsers(userId: string): Promise<FavouriteUser[]
 }
 
 export async function isFavouriteUser(userId: string, favouriteUserId: string): Promise<boolean> {
-  const favouritesRef = adminFirestore.collection('user_favorites')
+  const favouritesRef = adminFirestore().collection('user_favorites')
   const querySnapshot = await favouritesRef
     .where('userId', '==', userId)
     .where('favoriteUserId', '==', favouriteUserId)
@@ -335,7 +335,7 @@ export async function isFavouriteUser(userId: string, favouriteUserId: string): 
 // Active chats operations
 export async function getActiveChats(userId: string, limitCount = 10): Promise<ActiveChatUser[]> {
   const activeChats: ActiveChatUser[] = []
-  const conversationsRef = adminDatabase.ref('private_messages')
+  const conversationsRef = adminDatabase().ref('private_messages')
   const snapshot = await conversationsRef.once('value')
   
   if (snapshot.exists()) {
@@ -393,12 +393,12 @@ export async function getOrCreateSession(deviceFingerprint: string): Promise<{
   isNew: boolean
 }> {
   // Check if device session exists
-  const deviceSessionRef = adminFirestore.collection('device_sessions').doc(deviceFingerprint)
+  const deviceSessionRef = adminFirestore().collection('device_sessions').doc(deviceFingerprint)
   const deviceSessionDoc = await deviceSessionRef.get()
   
   if (deviceSessionDoc.exists) {
     const deviceData = deviceSessionDoc.data()!
-    const sessionRef = adminFirestore.collection('user_sessions').doc(deviceData.sessionId)
+    const sessionRef = adminFirestore().collection('user_sessions').doc(deviceData.sessionId)
     const sessionDoc = await sessionRef.get()
     
     if (sessionDoc.exists) {
@@ -454,7 +454,7 @@ export async function getOrCreateSession(deviceFingerprint: string): Promise<{
   }
   
   // Create session document
-  await adminFirestore.collection('user_sessions').doc(sessionId).set(sessionData)
+  await adminFirestore().collection('user_sessions').doc(sessionId).set(sessionData)
   
   // Create device session link
   await deviceSessionRef.set({
@@ -488,7 +488,7 @@ export async function getOrCreateSession(deviceFingerprint: string): Promise<{
 }
 
 export async function updateSessionProfile(sessionId: string, updates: Partial<SessionProfile>): Promise<void> {
-  const sessionRef = adminFirestore.collection('user_sessions').doc(sessionId)
+  const sessionRef = adminFirestore().collection('user_sessions').doc(sessionId)
   await sessionRef.update({
     ...updates,
     last_active: new Date()
@@ -500,7 +500,7 @@ export async function cleanupOldData(): Promise<void> {
   const fiveMinutesAgo = Date.now() - (5 * 60 * 1000)
   
   // Clean up old presence data
-  const presenceRef = adminDatabase.ref('user_presence')
+  const presenceRef = adminDatabase().ref('user_presence')
   const presenceSnapshot = await presenceRef.once('value')
   
   if (presenceSnapshot.exists()) {
@@ -508,7 +508,7 @@ export async function cleanupOldData(): Promise<void> {
     for (const [userId, userData] of Object.entries(presenceData)) {
       const data = userData as any
       if (data.lastSeen < fiveMinutesAgo) {
-        await adminDatabase.ref(`user_presence/${userId}`).update({
+        await adminDatabase().ref(`user_presence/${userId}`).update({
           isOnline: false
         })
       }
@@ -516,7 +516,7 @@ export async function cleanupOldData(): Promise<void> {
   }
   
   // Clean up old active users
-  const activeUsersRef = adminDatabase.ref('active_users')
+  const activeUsersRef = adminDatabase().ref('active_users')
   const activeUsersSnapshot = await activeUsersRef.once('value')
   
   if (activeUsersSnapshot.exists()) {
@@ -526,18 +526,18 @@ export async function cleanupOldData(): Promise<void> {
       for (const [userId, userData] of Object.entries(usersData)) {
         const data = userData as any
         if (data.lastActivity < fiveMinutesAgo) {
-          await adminDatabase.ref(`active_users/${zipcode}/${userId}`).remove()
+          await adminDatabase().ref(`active_users/${zipcode}/${userId}`).remove()
         }
       }
     }
   }
   
   // Clean up old users in Firestore (mark offline)
-  const usersRef = adminFirestore.collection('users')
+  const usersRef = adminFirestore().collection('users')
   const fiveMinutesAgoDate = new Date(fiveMinutesAgo)
   const oldUsersQuery = await usersRef.where('last_seen', '<', fiveMinutesAgoDate).get()
   
-  const batch = adminFirestore.batch()
+  const batch = adminFirestore().batch()
   oldUsersQuery.forEach((userDoc) => {
     batch.update(userDoc.ref, {
       is_online: false

@@ -6,6 +6,8 @@ import { getDatabase } from 'firebase-admin/database'
 import path from 'path'
 import fs from 'fs'
 
+let initialized = false
+
 // Initialize Firebase Admin SDK
 const initializeFirebaseAdmin = () => {
   if (getApps().length === 0) {
@@ -42,15 +44,46 @@ const initializeFirebaseAdmin = () => {
     }
 
     initializeApp(config)
+    initialized = true
   }
 }
 
-// Initialize the admin app
-initializeFirebaseAdmin()
+// Lazy initialization - only initialize when actually needed
+const ensureInitialized = () => {
+  // Skip initialization during build time
+  if (process.env.NEXT_PHASE === 'phase-production-build' || process.env.NODE_ENV === 'production' && !process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+    console.log('Skipping Firebase Admin initialization during build time')
+    return
+  }
+  
+  if (!initialized) {
+    initializeFirebaseAdmin()
+  }
+}
 
-// Export services
-export const adminAuth = getAuth()
-export const adminFirestore = getFirestore()
-export const adminDatabase = getDatabase()
+// Export getters that initialize on first use
+export const adminAuth = () => {
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    throw new Error('Firebase Admin Auth should not be used during build time')
+  }
+  ensureInitialized()
+  return getAuth()
+}
+
+export const adminFirestore = () => {
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    throw new Error('Firebase Admin Firestore should not be used during build time')
+  }
+  ensureInitialized()
+  return getFirestore()
+}
+
+export const adminDatabase = () => {
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    throw new Error('Firebase Admin Database should not be used during build time')
+  }
+  ensureInitialized()
+  return getDatabase()
+}
 
 export default initializeFirebaseAdmin
