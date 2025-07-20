@@ -8,7 +8,9 @@ service cloud.firestore {
     
     // User sessions - authenticated users can access their own sessions by UID
     match /user_sessions/{firebaseUid} {
-      allow read, write: if request.auth != null && request.auth.uid == firebaseUid;
+      allow read, write: if request.auth != null 
+                        && request.auth.uid == firebaseUid 
+                        && request.auth.token.email_verified == true;
     }
     
     // Chat rooms metadata - authenticated users can read room info

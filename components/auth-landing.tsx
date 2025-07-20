@@ -3,18 +3,30 @@
 import React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { MapPin, LogIn, UserPlus } from "lucide-react"
+import { MapPin, LogIn, UserPlus, ArrowLeft } from "lucide-react"
 
 interface AuthLandingProps {
   onSignInClick: () => void
   onSignUpClick: () => void
+  onBackClick?: () => void
 }
 
-export function AuthLanding({ onSignInClick, onSignUpClick }: AuthLandingProps) {
+export function AuthLanding({ onSignInClick, onSignUpClick, onBackClick }: AuthLandingProps) {
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{
       background: 'linear-gradient(135deg, #0f172a 0%, #581c87 50%, #0f172a 100%)'
     }}>
+      {onBackClick && (
+        <Button
+          onClick={onBackClick}
+          variant="ghost"
+          className="absolute top-4 left-4 text-white hover:bg-white/10"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
+      )}
+      
       <Card className="w-full max-w-md shadow-2xl" style={{
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
         backdropFilter: 'blur(12px)',

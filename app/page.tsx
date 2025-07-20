@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { ChatInterface } from "@/components/chat-interface"
+import { LandingPage } from "@/components/landing-page"
 import { AuthLanding } from "@/components/auth-landing"
 import { SignIn } from "@/components/sign-in"
 import { SignUp } from "@/components/sign-up"
@@ -12,7 +13,7 @@ import firebaseAuthClient from "@/lib/firebase-auth-client"
 import type { SessionProfile, UserSession } from "@/lib/firebase-auth-client"
 import { getCurrentLocation, getZipcodeFromCoordinates } from "@/lib/zipcode-utils"
 
-type AuthState = 'loading' | 'auth_landing' | 'sign_in' | 'sign_up' | 'profile_step1' | 'profile_step2' | 'authenticated'
+type AuthState = 'loading' | 'landing' | 'auth_landing' | 'sign_in' | 'sign_up' | 'profile_step1' | 'profile_step2' | 'authenticated'
 
 function HomePageContent() {
   const searchParams = useSearchParams()
@@ -29,17 +30,20 @@ function HomePageContent() {
       try {
         console.log('🔄 Waiting for Firebase auth state...')
         
-        // Check for post-verification auto-signin first
-        const postVerificationHandled = await firebaseAuthClient.checkAndHandlePostVerification()
-        
-        if (postVerificationHandled) {
-          console.log('✅ Post-verification auto-signin completed')
-          // Let the auth state change trigger the next check
-          return
-        }
-        
-        // Wait for Firebase auth state to be initialized
+        // Wait for Firebase auth state to be initialized first
         const isAuthenticated = await firebaseAuthClient.waitForAuthState()
+        
+        // Check if coming from email verification
+        const verified = searchParams.get('verified')
+        if (verified && !isAuthenticated) {
+          console.log('✅ User verified email but not authenticated, showing sign in')
+          setAuthState('sign_in')
+          setIsLoading(false)
+          return
+        } else if (verified && isAuthenticated) {
+          console.log('✅ User verified email and already authenticated, proceeding with normal flow')
+          // Continue with normal authenticated flow below
+        }
         
         if (isAuthenticated) {
           console.log('🔄 User is authenticated, loading profile...')
@@ -70,19 +74,13 @@ function HomePageContent() {
             setAuthState('profile_step1')
           }
         } else {
-          // Not authenticated - check if coming from email verification
-          const verified = searchParams.get('verified')
-          if (verified) {
-            console.log('✅ User verified email, showing sign in')
-            setAuthState('sign_in')
-          } else {
-            console.log('🔑 User not authenticated, showing auth landing')
-            setAuthState('auth_landing')
-          }
+          // Not authenticated - show landing page
+          console.log('🔑 User not authenticated, showing landing page')
+          setAuthState('landing')
         }
       } catch (error) {
         console.error('Failed to check auth state:', error)
-        setAuthState('auth_landing')
+        setAuthState('landing')
       } finally {
         setIsLoading(false)
       }
@@ -222,11 +220,19 @@ function HomePageContent() {
 
   // Render based on authentication state
   switch (authState) {
+    case 'landing':
+      return (
+        <LandingPage 
+          onGetStarted={() => setAuthState('auth_landing')}
+        />
+      )
+    
     case 'auth_landing':
       return (
         <AuthLanding 
           onSignInClick={() => setAuthState('sign_in')}
           onSignUpClick={() => setAuthState('sign_up')}
+          onBackClick={() => setAuthState('landing')}
         />
       )
     
@@ -234,7 +240,15 @@ function HomePageContent() {
       return (
         <SignIn 
           onAuthSuccess={handleAuthSuccess}
-          onBackClick={() => setAuthState('auth_landing')}
+          onBackClick={() => {
+            // If coming from email verification, go back to landing page
+            const verified = searchParams.get('verified')
+            if (verified) {
+              setAuthState('landing')
+            } else {
+              setAuthState('auth_landing')
+            }
+          }}
           onSignUpClick={() => setAuthState('sign_up')}
         />
       )
@@ -274,9 +288,8 @@ function HomePageContent() {
     
     default:
       return (
-        <AuthLanding 
-          onSignInClick={() => setAuthState('sign_in')}
-          onSignUpClick={() => setAuthState('sign_up')}
+        <LandingPage 
+          onGetStarted={() => setAuthState('auth_landing')}
         />
       )
   }

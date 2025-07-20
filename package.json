@@ -4,9 +4,22 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "npm run lint && npm run typecheck && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test:all": "npm run lint && npm run typecheck && npm run test:unit",
+    "test:unit": "echo 'Unit tests not configured yet'",
+    "deploy:dev": "npx tsx scripts/deploy-environment.ts development",
+    "deploy:staging": "npx tsx scripts/deploy-environment.ts staging", 
+    "deploy:prod": "npx tsx scripts/deploy-environment.ts production",
+    "validate:deployment": "npx tsx scripts/validate-deployment.ts",
+    "check:deployment": "npx tsx scripts/deployment-checklist.ts",
+    "rollback:prod": "npx tsx scripts/rollback.ts production",
+    "rollback:staging": "npx tsx scripts/rollback.ts staging",
+    "deployment:history": "gh run list --limit 10",
+    "setup:security": "npx tsx scripts/setup-security.ts",
+    "check:security": "npx tsx scripts/check-security.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.1",

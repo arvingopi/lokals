@@ -1,7 +1,7 @@
 {
   "rules": {
-    ".read": true,
-    ".write": true,
+    ".read": false,
+    ".write": false,
     "messages": {
       "$zipcode": {
         ".read": "auth != null",
@@ -62,6 +62,12 @@
       "$userId": {
         ".read": "auth != null",
         ".write": "auth != null"
+      }
+    },
+    "active_chats": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId"
       }
     }
   }

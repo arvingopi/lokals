@@ -1,0 +1,210 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+      - develop
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Lint Code
+        run: npm run lint
+
+      - name: Type Check
+        run: npm run typecheck
+
+      - name: Build Application
+        run: npm run build
+
+  deploy:
+    needs: lint-and-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read          # Read repository contents
+      issues: write          # Write to issues (for commenting)
+      pull-requests: write   # Write to pull requests (for commenting)
+      deployments: write     # Create deployments
+      statuses: write        # Update commit statuses
+      checks: write          # Write check runs
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      # Deploy to Production (main branch → lokals.chat)
+      - name: Deploy to Production
+        if: github.ref == 'refs/heads/main'
+        env:
+          # Production Firebase Configuration
+          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyCG6pcDyQ3p_2m3B1vAXPNP2ojHa4i5IZs
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: lokals-chat.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_DATABASE_URL: https://lokals-chat-default-rtdb.firebaseio.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: lokals-chat
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: lokals-chat.firebasestorage.app
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 758770180498
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:758770180498:web:c1c20b22e513f0c223214b
+          NEXT_PUBLIC_ENVIRONMENT: production
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY_PROD }}
+        run: |
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
+          echo "DEPLOYMENT_URL=$(cat deployment-url.txt)" >> $GITHUB_ENV
+
+      # Deploy to Staging (staging branch → lokals-staging.vercel.app)
+      - name: Deploy to Staging
+        if: github.ref == 'refs/heads/staging'
+        env:
+          # Staging Firebase Configuration
+          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyDp2ufhbwB8-TGV94QVPAtSTgIFP16BSQI
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: lokals-chat-staging.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_DATABASE_URL: https://lokals-chat-staging-default-rtdb.firebaseio.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: lokals-chat-staging
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: lokals-chat-staging.appspot.com
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 74752108764
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:74752108764:web:83c083a3a848bf21d2ac19
+          NEXT_PUBLIC_ENVIRONMENT: staging
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY_STAGING }}
+        run: |
+          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --token=${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
+          echo "DEPLOYMENT_URL=$(cat deployment-url.txt)" >> $GITHUB_ENV
+
+      # Deploy to Development (develop branch → lokals-dev.vercel.app)
+      - name: Deploy to Development
+        if: github.ref == 'refs/heads/develop'
+        env:
+          # Development Firebase Configuration
+          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyDp2ufhbwB8-TGV94QVPAtSTgIFP16BSQI
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: lokals-chat-dev.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_DATABASE_URL: https://lokals-chat-dev-default-rtdb.firebaseio.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: lokals-chat-dev
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: lokals-chat-dev.appspot.com
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 804026264581
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:804026264581:web:031b7740828d203e8c406c
+          NEXT_PUBLIC_ENVIRONMENT: development
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY_DEV }}
+        run: |
+          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --token=${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
+          echo "DEPLOYMENT_URL=$(cat deployment-url.txt)" >> $GITHUB_ENV
+
+      # Preview Deployments for Pull Requests
+      - name: Deploy Preview
+        if: github.event_name == 'pull_request'
+        env:
+          # Development Firebase Configuration for PR previews
+          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyDp2ufhbwB8-TGV94QVPAtSTgIFP16BSQI
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: lokals-chat-dev.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_DATABASE_URL: https://lokals-chat-dev-default-rtdb.firebaseio.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: lokals-chat-dev
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: lokals-chat-dev.appspot.com
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 804026264581
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:804026264581:web:031b7740828d203e8c406c
+          NEXT_PUBLIC_ENVIRONMENT: development
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY_DEV }}
+        run: |
+          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --token=${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
+          echo "PREVIEW_URL=$(cat deployment-url.txt)" >> $GITHUB_ENV
+
+      # Validate Deployment
+      - name: Validate Deployment
+        if: always()
+        run: |
+          if [ -f deployment-url.txt ]; then
+            DEPLOYMENT_URL=$(cat deployment-url.txt)
+            echo "🚀 Deployment successful: $DEPLOYMENT_URL"
+            
+            # Wait for deployment to be ready
+            sleep 30
+            
+            # Basic health check
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOYMENT_URL/api/health" || echo "000")
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "✅ Health check passed"
+            else
+              echo "⚠️ Health check failed with status: $HTTP_STATUS"
+            fi
+          else
+            echo "❌ No deployment URL found"
+          fi
+
+      # Comment on PR with deployment info
+      - name: Comment PR with Preview URL
+        if: github.event_name == 'pull_request' && env.PREVIEW_URL
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const url = process.env.PREVIEW_URL;
+            const environment = process.env.NEXT_PUBLIC_ENVIRONMENT || 'development';
+            const commit = context.sha.substring(0, 7);
+            
+            const body = '## 🚀 Preview Deployment Ready\n\n' +
+                        'Environment: ' + environment + '\n' +
+                        'URL: ' + url + '\n' +
+                        'Commit: ' + commit + '\n\n' +
+                        'The preview deployment has been successfully created and is ready for testing.';
+            
+            try {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+              console.log('✅ Successfully commented on PR');
+            } catch (error) {
+              console.error('❌ Failed to comment on PR:', error.message);
+            }
+
+      # Notify deployment status
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: $([ '${{ github.ref }}' = 'refs/heads/main' ] && echo 'Production' || [ '${{ github.ref }}' = 'refs/heads/staging' ] && echo 'Staging' || [ '${{ github.ref }}' = 'refs/heads/develop' ] && echo 'Development' || echo 'Preview')" >> $GITHUB_STEP_SUMMARY
+          if [ -f deployment-url.txt ]; then
+            echo "- **URL**: $(cat deployment-url.txt)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status**: ✅ Deployed Successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Status**: ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
