@@ -17,13 +17,29 @@ function EmailVerificationContent() {
   useEffect(() => {
     const verifyEmail = async () => {
       try {
-        const actionCode = searchParams.get('oobCode')
+        // Check for Firebase's standard verification URL parameters
+        const actionCode = searchParams.get('oobCode') || searchParams.get('actionCode')
         const mode = searchParams.get('mode')
         const apiKey = searchParams.get('apiKey')
+        const continueUrl = searchParams.get('continueUrl')
         
-        console.log('Verification URL parameters:', { actionCode, mode, apiKey })
+        console.log('Verification URL parameters:', { actionCode, mode, apiKey, continueUrl })
         
+        // If no action code, check if this is a continue URL from Firebase
         if (!actionCode) {
+          // Check if this is coming from a Firebase action URL redirect
+          const urlParams = new URLSearchParams(window.location.search)
+          const allParams = Object.fromEntries(urlParams.entries())
+          console.log('All URL parameters:', allParams)
+          
+          // If we only have email parameter, this might be a misconfigured verification link
+          const email = searchParams.get('email')
+          if (email && Object.keys(allParams).length === 1) {
+            setError('Invalid verification link. This may be due to Firebase configuration. Please check your Firebase Console Action URLs settings.')
+            setStatus('error')
+            return
+          }
+          
           setError('Invalid verification link. Missing action code.')
           setStatus('error')
           return
@@ -33,21 +49,7 @@ function EmailVerificationContent() {
         await applyActionCode(auth, actionCode)
         
         console.log('✅ Email verified successfully')
-        
-        // Get the email from the URL
-        const email = searchParams.get('email')
-        
-        if (email) {
-          // Store verified email in sessionStorage for auto-signin
-          sessionStorage.setItem('verified_email', email)
-        }
-        
         setStatus('success')
-        
-        // Redirect to home where auto-signin will happen
-        setTimeout(() => {
-          router.push('/')
-        }, 2000)
         
       } catch (error) {
         console.error('Email verification failed:', error)
@@ -70,8 +72,9 @@ function EmailVerificationContent() {
     verifyEmail()
   }, [searchParams, router])
 
-  const handleRetry = () => {
-    router.push('/')
+  const handleContinue = () => {
+    // Redirect to home with verified flag to show sign-in
+    router.push('/?verified=true')
   }
 
   return (
@@ -122,9 +125,6 @@ function EmailVerificationContent() {
                   <p className="text-white/70 text-sm">
                     Your email has been successfully verified. You can now sign in to complete your profile setup.
                   </p>
-                  <p className="text-emerald-300 text-sm mt-2">
-                    Redirecting you to sign in...
-                  </p>
                 </div>
               </>
             )}
@@ -147,9 +147,18 @@ function EmailVerificationContent() {
             )}
           </div>
 
+          {status === 'success' && (
+            <Button 
+              onClick={handleContinue}
+              className="w-full bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white h-12 font-bold shadow-lg"
+            >
+              Continue to Sign In
+            </Button>
+          )}
+
           {status === 'error' && (
             <Button 
-              onClick={handleRetry}
+              onClick={handleContinue}
               className="w-full bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white h-12 font-bold shadow-lg"
             >
               Back to Sign Up

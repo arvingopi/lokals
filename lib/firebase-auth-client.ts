@@ -152,6 +152,11 @@ class FirebaseAuthClient {
     onAuthStateChanged(auth, async (user) => {
       this.currentUser = user
       if (user) {
+        console.log('🔄 Auth state changed - user authenticated:', user.uid, 'verified:', user.emailVerified)
+        
+        // Wait a moment for the Firebase Auth token to be fully ready
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
         // If we don't have profile data in memory, try to load from Firestore
         if (!this.currentProfile) {
           console.log('🔄 Loading user session for authenticated user...')
@@ -189,6 +194,9 @@ class FirebaseAuthClient {
 
   private async loadUserSession(firebaseUid: string) {
     try {
+      console.log('🔍 Loading user session for UID:', firebaseUid)
+      console.log('🔍 Current auth user:', this.currentUser?.uid, 'verified:', this.currentUser?.emailVerified)
+      
       const sessionDoc = await getDoc(doc(firestore, 'user_sessions', firebaseUid))
       if (sessionDoc.exists()) {
         const data = sessionDoc.data() as FirebaseUserSession
@@ -205,9 +213,16 @@ class FirebaseAuthClient {
         // Save to localStorage for persistence
         this.saveToLocalStorage()
         console.log('✅ User session loaded and saved to localStorage')
+      } else {
+        console.log('⚠️ No user session document found for UID:', firebaseUid)
       }
     } catch (error) {
-      console.error('Failed to load user session:', error)
+      console.error('❌ Failed to load user session:', error)
+      if (error instanceof Error && 'code' in error) {
+        const firebaseError = error as { code: string; message: string }
+        console.error('🔍 Firebase error code:', firebaseError.code)
+        console.error('🔍 Firebase error message:', firebaseError.message)
+      }
     }
   }
 
@@ -226,6 +241,16 @@ class FirebaseAuthClient {
         throw new Error('Please verify your email before signing in. Check your inbox for the verification link.')
       }
       
+      // If user has verified email but the token doesn't reflect it yet, reload user
+      if (firebaseUser.emailVerified) {
+        console.log('🔄 Reloading user to ensure fresh auth token with email verification...')
+        await firebaseUser.reload()
+        
+        // Force refresh the ID token to include email_verified claim
+        await firebaseUser.getIdToken(true)
+        console.log('✅ User reloaded and token refreshed')
+      }
+      
       return await this.getOrCreateUserSession(firebaseUser, email)
     } catch (error: unknown) {
       console.error('Sign in failed:', error)
@@ -239,14 +264,9 @@ class FirebaseAuthClient {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       const firebaseUser = userCredential.user
       
-      // Store password temporarily in sessionStorage for auto-signin after verification
-      sessionStorage.setItem('temp_auth_pwd', password)
-      
-      // Send verification email
-      await sendEmailVerification(firebaseUser, {
-        url: `${window.location.origin}/auth/verify?email=${encodeURIComponent(email)}`,
-        handleCodeInApp: false
-      })
+      // Send verification email using Firebase's default handling
+      // The verification link will include the oobCode parameter automatically
+      await sendEmailVerification(firebaseUser)
       
       // Sign out immediately so user must verify email first
       await signOut(auth)
@@ -265,8 +285,29 @@ class FirebaseAuthClient {
     isNew: boolean
   }> {
     try {
+      console.log('🔍 Getting or creating user session for:', firebaseUser.uid)
+      console.log('🔍 User verified:', firebaseUser.emailVerified)
+      
+      // Wait for auth token to be ready
+      console.log('🔍 Waiting for Firebase ID token...')
+      const idToken = await firebaseUser.getIdToken(true) // Force refresh
+      console.log('🔍 ID token obtained, length:', idToken.length)
+      
       // Check if session exists
-      const sessionDoc = await getDoc(doc(firestore, 'user_sessions', firebaseUser.uid))
+      console.log('🔍 Attempting to read user session document...')
+      let sessionDoc
+      try {
+        sessionDoc = await getDoc(doc(firestore, 'user_sessions', firebaseUser.uid))
+        console.log('✅ Successfully read session document, exists:', sessionDoc.exists())
+      } catch (readError) {
+        console.error('❌ Failed to read session document:', readError)
+        if (readError instanceof Error && 'code' in readError) {
+          const firebaseError = readError as { code: string; message: string }
+          console.error('🔍 Read error code:', firebaseError.code)
+          console.error('🔍 Read error message:', firebaseError.message)
+        }
+        throw readError
+      }
       
       if (sessionDoc.exists()) {
         // Existing session

@@ -29,6 +29,151 @@ npm run lint
 npm run typecheck
 ```
 
+### Deployment Commands
+
+#### /deploy - Multi-Environment Deployment Pipeline
+**Usage**: Type `/deploy` and Claude will execute the complete pipeline sequentially.
+
+**What it does:**
+1. **Validation Phase**: Run linting, type checking, and pre-deployment tests
+2. **Development Deployment**: 
+   - Create/use feature branch from current work
+   - Deploy to development environment (`lokals-chat-dev` Firebase project)
+   - Run automated tests and validation
+   - Provide development preview URL
+3. **Staging Deployment**:
+   - Merge to staging branch
+   - Deploy to staging environment (`lokals-chat-staging` Firebase project)  
+   - Run staging validation tests and smoke tests
+   - Provide staging URL for manual testing
+4. **Production Deployment**:
+   - Merge to main branch
+   - Deploy to production (`lokals-chat` Firebase project → lokals.chat)
+   - Run production smoke tests
+   - Provide production URL and deployment confirmation
+5. **Cleanup**: Clean up feature branches and provide deployment summary
+
+**Environments:**
+- **Development**: `https://lokals-dev.vercel.app` → Firebase `lokals-chat-dev`
+- **Staging**: `https://lokals-staging.vercel.app` → Firebase `lokals-chat-staging`  
+- **Production**: `https://lokals.chat` → Firebase `lokals-chat`
+
+**Security Prerequisites**: Before using `/deploy`, ensure security is configured:
+```bash
+# 1. Set up repository security (run once)
+npx tsx scripts/setup-security.ts
+
+# 2. Validate security configuration
+npx tsx scripts/check-security.ts
+```
+
+**Implementation**: When user types `/deploy`, Claude executes:
+```bash
+# 1. Run security validation
+npx tsx scripts/check-security.ts
+
+# 2. Run pre-deployment checklist (includes security checks)
+npm run check:deployment
+
+# 3. Deploy to development
+npm run deploy:dev
+
+# 4. Validate development deployment  
+npm run validate:deployment development
+
+# 5. Deploy to staging
+npm run deploy:staging
+
+# 6. Validate staging deployment
+npm run validate:deployment staging
+
+# 7. Deploy to production  
+npm run deploy:prod
+
+# 8. Validate production deployment
+npm run validate:deployment production
+
+# 9. Provide deployment summary with URLs
+```
+
+**Required Security Setup** (one-time configuration):
+
+1. **Branch Protection Rules**:
+   - Main branch: Require PR reviews, status checks, no force pushes
+   - Staging branch: Require PR reviews and status checks  
+   - Develop branch: Require status checks
+
+2. **GitHub Secrets** (add manually in repository settings):
+   ```bash
+   VERCEL_ORG_ID                      # Vercel organization ID
+   VERCEL_PROJECT_ID                  # Vercel project ID
+   VERCEL_TOKEN                       # Vercel deployment token
+   FIREBASE_SERVICE_ACCOUNT_KEY_DEV   # Firebase dev environment key
+   FIREBASE_SERVICE_ACCOUNT_KEY_STAGING # Firebase staging environment key  
+   FIREBASE_SERVICE_ACCOUNT_KEY_PROD  # Firebase production environment key
+   ```
+
+3. **GitHub Actions Permissions**:
+   - Set default GITHUB_TOKEN permissions to "read"
+   - Enable "Allow GitHub Actions to create and approve pull requests"
+   - Workflow includes explicit permissions for PR comments
+
+#### Manual Deployment Commands
+```bash
+# Deploy current branch to development environment
+npm run deploy:dev
+
+# Deploy to staging (requires staging branch)
+npm run deploy:staging
+
+# Deploy to production (requires main branch)
+npm run deploy:prod
+
+# Run full test suite before deployment
+npm run test:all
+
+# Validate deployment health
+npm run validate:deployment
+
+# Run deployment checklist
+npm run check:deployment
+```
+
+#### Rollback Commands
+```bash
+# Rollback production to previous version
+npm run rollback:prod
+
+# Rollback staging to previous version  
+npm run rollback:staging
+
+# Check deployment history
+npm run deployment:history
+```
+
+#### Security Commands
+```bash
+# Set up repository security configuration (run once)
+npx tsx scripts/setup-security.ts
+
+# Validate security configuration before deployment
+npx tsx scripts/check-security.ts
+
+# Check for security issues
+npm run check:deployment --skip-build   # Fast security-focused check
+
+# CRITICAL: Check for secrets before ANY commit
+./scripts/pre-commit-check.sh
+```
+
+### 🚨 CRITICAL SECURITY NOTICE 🚨
+**NEVER COMMIT FIREBASE SERVICE ACCOUNT KEYS OR ANY CREDENTIALS TO GIT**
+- All Firebase service account keys must be stored as environment variables
+- Run `./scripts/pre-commit-check.sh` before EVERY commit to check for secrets
+- Service account JSON files should NEVER exist in the repository
+- Use environment variables: `FIREBASE_SERVICE_ACCOUNT_KEY` (JSON string)
+- If you need service account files locally, name them: `firebase-admin-key.json` (already in .gitignore)
+
 ### Environment Variables Required
 ```bash
 # Firebase Configuration
