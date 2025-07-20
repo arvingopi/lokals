@@ -1,5 +1,5 @@
 // Firebase Admin SDK database operations for server-side API routes
-import { adminDatabase(), adminFirestore() } from './firebase-admin'
+import { adminDatabase, adminFirestore } from './firebase-admin'
 import { generateUserId, generateUsername } from './user-persistence'
 
 // Legacy interfaces for compatibility
