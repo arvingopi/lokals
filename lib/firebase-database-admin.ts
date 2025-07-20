@@ -108,7 +108,7 @@ export async function getRoomMessages(zipcode: string, limitCount = 50): Promise
   const snapshot = await messagesQuery.once('value')
   const messages: Message[] = []
   
-  snapshot.forEach((childSnapshot) => {
+  snapshot.forEach((childSnapshot: any) => {
     const data = childSnapshot.val()
     messages.push({
       id: data.id,
@@ -133,7 +133,7 @@ export async function getPrivateMessages(userId1: string, userId2: string, limit
   const snapshot = await messagesQuery.once('value')
   const messages: Message[] = []
   
-  snapshot.forEach((childSnapshot) => {
+  snapshot.forEach((childSnapshot: any) => {
     const data = childSnapshot.val()
     messages.push({
       id: data.id,
@@ -291,7 +291,7 @@ export async function removeFavouriteUser(userId: string, favouriteUserId: strin
     .get()
   
   const batch = adminFirestore.batch()
-  querySnapshot.forEach((doc) => {
+  querySnapshot.forEach((doc: any) => {
     batch.delete(doc.ref)
   })
   
@@ -307,7 +307,7 @@ export async function getFavouriteUsers(userId: string): Promise<FavouriteUser[]
   
   const favourites: FavouriteUser[] = []
   
-  querySnapshot.forEach((doc) => {
+  querySnapshot.forEach((doc: any) => {
     const data = doc.data()
     favourites.push({
       id: doc.id,
@@ -538,7 +538,7 @@ export async function cleanupOldData(): Promise<void> {
   const oldUsersQuery = await usersRef.where('last_seen', '<', fiveMinutesAgoDate).get()
   
   const batch = adminFirestore.batch()
-  oldUsersQuery.forEach((userDoc) => {
+  oldUsersQuery.forEach((userDoc: any) => {
     batch.update(userDoc.ref, {
       is_online: false
     })

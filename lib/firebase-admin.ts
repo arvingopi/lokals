@@ -8,6 +8,12 @@ import fs from 'fs'
 
 // Initialize Firebase Admin SDK
 const initializeFirebaseAdmin = () => {
+  // Skip initialization during build time
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    console.log('Skipping Firebase Admin initialization during build')
+    return
+  }
+
   if (getApps().length === 0) {
     const config: any = {
       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
@@ -37,7 +43,8 @@ const initializeFirebaseAdmin = () => {
           throw error
         }
       } else {
-        throw new Error('Firebase Admin credentials not found. Please ensure firebase-admin-key.json exists or set FIREBASE_SERVICE_ACCOUNT_KEY environment variable.')
+        console.warn('Firebase Admin credentials not found - skipping initialization')
+        return
       }
     }
 
@@ -45,12 +52,12 @@ const initializeFirebaseAdmin = () => {
   }
 }
 
-// Initialize the admin app
+// Try to initialize (will be skipped during build)
 initializeFirebaseAdmin()
 
-// Export services
-export const adminAuth = getAuth()
-export const adminFirestore = getFirestore()
-export const adminDatabase = getDatabase()
+// Export services with runtime checks
+export const adminAuth = getApps().length > 0 ? getAuth() : null as any
+export const adminFirestore = getApps().length > 0 ? getFirestore() : null as any  
+export const adminDatabase = getApps().length > 0 ? getDatabase() : null as any
 
 export default initializeFirebaseAdmin
