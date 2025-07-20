@@ -31,6 +31,16 @@ jobs:
       # Deploy to Production (main branch → lokals.chat)
       - name: Deploy to Production
         if: github.ref == 'refs/heads/main'
+        env:
+          # Production Firebase Configuration
+          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyCG6pcDyQ3p_2m3B1vAXPNP2ojHa4i5IZs
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: lokals-chat.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_DATABASE_URL: https://lokals-chat-default-rtdb.firebaseio.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: lokals-chat
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: lokals-chat.firebasestorage.app
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 758770180498
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:758770180498:web:c1c20b22e513f0c223214b
+          NEXT_PUBLIC_ENVIRONMENT: production
         run: |
           vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
           vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
@@ -39,6 +49,16 @@ jobs:
       # Deploy to Staging (staging branch → lokals.vercel.app)
       - name: Deploy to Staging
         if: github.ref == 'refs/heads/staging'
+        env:
+          # Staging Firebase Configuration
+          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyDp2ufhbwB8-TGV94QVPAtSTgIFP16BSQI
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: lokals-chat-staging.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_DATABASE_URL: https://lokals-chat-staging-default-rtdb.firebaseio.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: lokals-chat-staging
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: lokals-chat-staging.appspot.com
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 74752108764
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:74752108764:web:83c083a3a848bf21d2ac19
+          NEXT_PUBLIC_ENVIRONMENT: staging
         run: |
           vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
           vercel build --token=${{ secrets.VERCEL_TOKEN }}
@@ -47,6 +67,16 @@ jobs:
       # Deploy to Development (develop branch)
       - name: Deploy to Development
         if: github.ref == 'refs/heads/develop'
+        env:
+          # Development Firebase Configuration
+          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyDp2ufhbwB8-TGV94QVPAtSTgIFP16BSQI
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: lokals-chat-dev.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_DATABASE_URL: https://lokals-chat-dev-default-rtdb.firebaseio.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: lokals-chat-dev
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: lokals-chat-dev.appspot.com
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 804026264581
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:804026264581:web:031b7740828d203e8c406c
+          NEXT_PUBLIC_ENVIRONMENT: development
         run: |
           vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
           vercel build --token=${{ secrets.VERCEL_TOKEN }}
@@ -55,6 +85,16 @@ jobs:
       # Preview Deployments for Pull Requests
       - name: Deploy Preview
         if: github.event_name == 'pull_request'
+        env:
+          # Development Firebase Configuration for PR previews
+          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyDp2ufhbwB8-TGV94QVPAtSTgIFP16BSQI
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: lokals-chat-dev.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_DATABASE_URL: https://lokals-chat-dev-default-rtdb.firebaseio.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: lokals-chat-dev
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: lokals-chat-dev.appspot.com
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 804026264581
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:804026264581:web:031b7740828d203e8c406c
+          NEXT_PUBLIC_ENVIRONMENT: development
         run: |
           vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
           vercel build --token=${{ secrets.VERCEL_TOKEN }}
