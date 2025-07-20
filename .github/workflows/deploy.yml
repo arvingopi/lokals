@@ -173,24 +173,24 @@ jobs:
           script: |
             const url = process.env.PREVIEW_URL;
             const environment = process.env.NEXT_PUBLIC_ENVIRONMENT || 'development';
+            const commit = context.sha.substring(0, 7);
+            
+            const body = '## 🚀 Preview Deployment Ready\n\n' +
+                        'Environment: ' + environment + '\n' +
+                        'URL: ' + url + '\n' +
+                        'Commit: ' + commit + '\n\n' +
+                        'The preview deployment has been successfully created and is ready for testing.';
             
             try {
               await github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `## 🚀 Preview Deployment Ready
-
-**Environment:** ${environment}
-**URL:** ${url}
-**Commit:** ${context.sha.substring(0, 7)}
-
-The preview deployment has been successfully created and is ready for testing.`
+                body: body
               });
               console.log('✅ Successfully commented on PR');
             } catch (error) {
               console.error('❌ Failed to comment on PR:', error.message);
-              // Don't fail the workflow if commenting fails
             }
 
       # Notify deployment status
